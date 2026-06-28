@@ -1,0 +1,5 @@
+# Default owner for all files
+* @sethbacon
+
+# CI/CD workflows and repo config require explicit review
+.github/ @sethbacon

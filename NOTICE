@@ -1,0 +1,13 @@
+@sethbacon/terraform-suite-ui
+Copyright 2026 Terraform Suite Contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+---
+
+This package builds against third-party open-source software declared in
+package.json — including React, React DOM, MUI (@mui/material, @mui/icons-material),
+Emotion, i18next, react-i18next, react-router-dom, and TanStack Query — each
+distributed under its own license. These are peer dependencies provided by the
+consuming application at runtime and are not redistributed within this package.

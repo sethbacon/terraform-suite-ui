@@ -1,0 +1,348 @@
+import { useMemo, useState, type ReactNode } from 'react'
+import { Outlet, Link as RouterLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import {
+  AppBar,
+  Box,
+  Button,
+  Collapse,
+  Container,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material'
+import { alpha } from '@mui/material/styles'
+import MenuIcon from '@mui/icons-material/Menu'
+import Brightness4 from '@mui/icons-material/Brightness4'
+import Brightness7 from '@mui/icons-material/Brightness7'
+import AccountCircle from '@mui/icons-material/AccountCircle'
+import LogoutIcon from '@mui/icons-material/Logout'
+import LoginIcon from '@mui/icons-material/Login'
+import TranslateIcon from '@mui/icons-material/Translate'
+import ExpandLess from '@mui/icons-material/ExpandLess'
+import ExpandMore from '@mui/icons-material/ExpandMore'
+import { useAuth, SessionExpiryWarning } from '../identity'
+import { useThemeMode } from '../theme'
+import type { NavGroup, NavItem } from './types'
+
+const DRAWER_WIDTH = 240
+
+export interface SuiteLanguageOption {
+  code: string
+  label: string
+}
+
+export interface SuiteLayoutProps {
+  /** Standalone Home item shown above the grouped sections. */
+  homeItem: NavItem
+  /** Flat nav items shown above the collapsible groups (optional). */
+  primaryNavItems?: NavItem[]
+  /** Collapsible, scope-filtered feature/admin groups. */
+  navGroups?: NavGroup[]
+  /** Element rendered at the start of the AppBar (e.g. a SuiteSwitcher). */
+  suiteSwitcher?: ReactNode
+  /** Extra AppBar actions inserted before the theme toggle (help, search, etc.). */
+  appBarActions?: ReactNode
+  /** Overlay element rendered at the root (e.g. a command palette). */
+  commandPalette?: ReactNode
+  /** Languages for the language menu; omit/empty to hide it. */
+  languages?: SuiteLanguageOption[]
+  /** Content container max width (default 'lg'). */
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | false
+  /** Route for the sign-in button when unauthenticated (default '/login'). */
+  loginPath?: string
+}
+
+/**
+ * Parameterised application shell shared by the suite apps: fixed AppBar (brand,
+ * suite switcher slot, theme toggle, language + account menus), a responsive
+ * Drawer rendering the injected nav (scope-filtered, collapsible groups, active
+ * styling), a skip link, the routed content outlet, and the session-expiry
+ * warning. Branding (product name) comes from the theme/whitelabel context.
+ */
+export function SuiteLayout({
+  homeItem,
+  primaryNavItems = [],
+  navGroups = [],
+  suiteSwitcher,
+  appBarActions,
+  commandPalette,
+  languages = [],
+  maxWidth = 'lg',
+  loginPath = '/login',
+}: SuiteLayoutProps) {
+  const theme = useTheme()
+  const { t, i18n } = useTranslation()
+  const location = useLocation()
+  const { mode, toggleTheme, productName } = useThemeMode()
+  const { isAuthenticated, user, logout, hasScope } = useAuth()
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
+
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [accountAnchor, setAccountAnchor] = useState<null | HTMLElement>(null)
+  const [langAnchor, setLangAnchor] = useState<null | HTMLElement>(null)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+
+  const visibleGroups = useMemo(
+    () =>
+      navGroups
+        .map((g) => ({
+          ...g,
+          items: g.items.filter((it) => it.scope === null || hasScope(it.scope)),
+        }))
+        .filter((g) => g.items.length > 0),
+    [navGroups, hasScope],
+  )
+
+  const activeGroupKey = useMemo(
+    () =>
+      visibleGroups.find((g) => g.items.some((it) => location.pathname.startsWith(it.path)))?.key ??
+      null,
+    [visibleGroups, location.pathname],
+  )
+
+  const isGroupOpen = (key: string) => openGroups[key] ?? key === activeGroupKey
+
+  const isActive = (path: string) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path)
+
+  const itemSx = (active: boolean) =>
+    active
+      ? {
+        borderLeft: `3px solid ${theme.palette.primary.main}`,
+        backgroundColor: alpha(theme.palette.primary.main, mode === 'dark' ? 0.16 : 0.12),
+        '& .MuiListItemText-primary': { fontWeight: 600 },
+      }
+      : { borderLeft: '3px solid transparent' }
+
+  const renderItem = (item: NavItem) => {
+    const active = isActive(item.path)
+    const button = (
+      <ListItemButton
+        component={RouterLink}
+        to={item.path}
+        selected={active}
+        onClick={() => setMobileOpen(false)}
+        sx={itemSx(active)}
+      >
+        <ListItemIcon sx={{ color: active ? 'primary.main' : undefined, minWidth: 40 }}>
+          {item.icon}
+        </ListItemIcon>
+        <ListItemText primary={t(item.labelKey)} />
+      </ListItemButton>
+    )
+    return (
+      <li key={item.path}>
+        {item.tooltipKey ? (
+          <Tooltip title={t(item.tooltipKey)} placement="right">
+            <span>{button}</span>
+          </Tooltip>
+        ) : (
+          button
+        )}
+      </li>
+    )
+  }
+
+  const drawerContent = (
+    <Box>
+      <Toolbar />
+      <List component="ul">
+        {renderItem(homeItem)}
+        {primaryNavItems.map(renderItem)}
+      </List>
+      {visibleGroups.map((group) => (
+        <Box key={group.key}>
+          <Divider />
+          <ListItemButton
+            onClick={() => setOpenGroups((p) => ({ ...p, [group.key]: !isGroupOpen(group.key) }))}
+          >
+            <ListItemText
+              primary={
+                <Typography variant="overline" color="text.secondary">
+                  {t(group.labelKey)}
+                </Typography>
+              }
+            />
+            {isGroupOpen(group.key) ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+          <Collapse in={isGroupOpen(group.key)} unmountOnExit>
+            <List component="ul" disablePadding>
+              {group.items.map(renderItem)}
+            </List>
+          </Collapse>
+        </Box>
+      ))}
+    </Box>
+  )
+
+  const changeLanguage = (code: string) => {
+    void i18n.changeLanguage(code)
+    setLangAnchor(null)
+  }
+
+  return (
+    <Box sx={{ display: 'flex' }}>
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: -9999,
+          top: 0,
+          '&:focus': {
+            left: 8,
+            top: 8,
+            zIndex: (z) => z.zIndex.tooltip + 1,
+            px: 2,
+            py: 1,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+          },
+        }}
+      >
+        {t('a11y.skipToContent', { defaultValue: 'Skip to content' })}
+      </Box>
+
+      <AppBar position="fixed" sx={{ zIndex: theme.zIndex.drawer + 1 }}>
+        <Toolbar>
+          {!isDesktop && (
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label={t('nav.toggle', { defaultValue: 'Toggle navigation' })}
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+          {suiteSwitcher}
+          <Typography
+            variant="h6"
+            component={RouterLink}
+            to="/"
+            sx={{
+              color: 'inherit',
+              textDecoration: 'none',
+              fontWeight: 700,
+              ml: suiteSwitcher ? 1 : 0,
+            }}
+          >
+            {productName}
+          </Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          {appBarActions}
+          <Tooltip title={t('theme.toggle', { defaultValue: 'Toggle theme' })}>
+            <IconButton
+              color="inherit"
+              onClick={toggleTheme}
+              aria-label={t('theme.toggle', { defaultValue: 'Toggle theme' })}
+            >
+              {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
+          </Tooltip>
+          {languages.length > 0 && (
+            <>
+              <Tooltip title={t('language.select', { defaultValue: 'Language' })}>
+                <IconButton
+                  color="inherit"
+                  onClick={(e) => setLangAnchor(e.currentTarget)}
+                  aria-label={t('language.select', { defaultValue: 'Language' })}
+                >
+                  <TranslateIcon />
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={langAnchor}
+                open={Boolean(langAnchor)}
+                onClose={() => setLangAnchor(null)}
+              >
+                {languages.map((l) => (
+                  <MenuItem
+                    key={l.code}
+                    selected={i18n.language?.startsWith(l.code)}
+                    onClick={() => changeLanguage(l.code)}
+                  >
+                    {l.label}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
+          {isAuthenticated ? (
+            <>
+              <Tooltip title={user?.name ?? user?.email ?? ''}>
+                <IconButton
+                  color="inherit"
+                  onClick={(e) => setAccountAnchor(e.currentTarget)}
+                  aria-label={t('header.account', { defaultValue: 'Account' })}
+                >
+                  <AccountCircle />
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={accountAnchor}
+                open={Boolean(accountAnchor)}
+                onClose={() => setAccountAnchor(null)}
+              >
+                <MenuItem disabled>{user?.name ?? user?.email}</MenuItem>
+                <Divider />
+                <MenuItem
+                  onClick={() => {
+                    setAccountAnchor(null)
+                    logout()
+                  }}
+                >
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  {t('auth.signOut', { defaultValue: 'Sign out' })}
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <Button color="inherit" startIcon={<LoginIcon />} component={RouterLink} to={loginPath}>
+              {t('header.login', { defaultValue: 'Sign in' })}
+            </Button>
+          )}
+        </Toolbar>
+      </AppBar>
+
+      <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
+        <Drawer
+          variant={isDesktop ? 'permanent' : 'temporary'}
+          open={isDesktop ? true : mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      </Box>
+
+      <Box component="main" id="main-content" sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Toolbar />
+        <Container maxWidth={maxWidth} sx={{ py: 4 }}>
+          <Outlet />
+        </Container>
+      </Box>
+
+      {commandPalette}
+      <SessionExpiryWarning />
+    </Box>
+  )
+}
