@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.3.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.2.0...v0.3.0) (2026-06-29)
+
+
+### Features
+
+* **shell:** add settingsMenu mode + supportMenu slot to SuiteLayout ([b50a381](https://github.com/sethbacon/terraform-suite-ui/commit/b50a381b86811e6ef7043d39f32c2f6c7d5a0cc2))
+* **shell:** add settingsMenu mode and supportMenu slot to SuiteLayout ([3836ab9](https://github.com/sethbacon/terraform-suite-ui/commit/3836ab9928771ec4c946fe6b7fe849f367e5aafc))
+
 ## [0.2.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.1.0...v0.2.0) (2026-06-29)
 
 
