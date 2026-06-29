@@ -27,4 +27,10 @@ export interface SuiteLink {
   href: string
   /** Marks the current app (highlighted in the switcher). */
   current?: boolean
+  /**
+   * Stable window name of the target app. When set, the switcher reuses a single
+   * tab per sibling (window.open(href, appId)) instead of spawning a new tab each
+   * time. Omit for plain new-tab navigation.
+   */
+  appId?: string
 }
