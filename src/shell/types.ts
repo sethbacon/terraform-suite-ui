@@ -18,6 +18,12 @@ export interface NavGroup {
   /** i18n key for the collapsible group header. */
   labelKey: string
   items: NavItem[]
+  /**
+   * Optional item rendered standalone (no group header) immediately above this
+   * group's header, and only when the group is visible after scope filtering.
+   * Used for an admin "Dashboard" link that sits just above the first admin group.
+   */
+  standaloneItem?: NavItem
 }
 
 export interface SuiteLink {
