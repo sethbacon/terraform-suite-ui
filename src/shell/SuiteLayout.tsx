@@ -32,6 +32,8 @@ import LoginIcon from '@mui/icons-material/Login'
 import TranslateIcon from '@mui/icons-material/Translate'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
+import SettingsIcon from '@mui/icons-material/Settings'
+import CheckIcon from '@mui/icons-material/Check'
 import { useAuth, SessionExpiryWarning } from '../identity'
 import { useThemeMode } from '../theme'
 import type { NavGroup, NavItem } from './types'
@@ -56,6 +58,16 @@ export interface SuiteLayoutProps {
   appBarActions?: ReactNode
   /** Overlay element rendered at the root (e.g. a command palette). */
   commandPalette?: ReactNode
+  /**
+   * Combine the theme toggle and language picker into a single Settings (gear)
+   * menu instead of separate AppBar controls. Default false (separate controls).
+   */
+  settingsMenu?: boolean
+  /**
+   * Optional support/help control (a self-contained button + menu) rendered
+   * between the settings control and the account control.
+   */
+  supportMenu?: ReactNode
   /** Languages for the language menu; omit/empty to hide it. */
   languages?: SuiteLanguageOption[]
   /** Content container max width (default 'lg'). */
@@ -78,6 +90,8 @@ export function SuiteLayout({
   suiteSwitcher,
   appBarActions,
   commandPalette,
+  settingsMenu = false,
+  supportMenu,
   languages = [],
   maxWidth = 'lg',
   loginPath = '/login',
@@ -92,6 +106,7 @@ export function SuiteLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [accountAnchor, setAccountAnchor] = useState<null | HTMLElement>(null)
   const [langAnchor, setLangAnchor] = useState<null | HTMLElement>(null)
+  const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   const visibleGroups = useMemo(
@@ -190,6 +205,7 @@ export function SuiteLayout({
   const changeLanguage = (code: string) => {
     void i18n.changeLanguage(code)
     setLangAnchor(null)
+    setSettingsAnchor(null)
   }
 
   return (
@@ -244,43 +260,96 @@ export function SuiteLayout({
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
           {appBarActions}
-          <Tooltip title={t('theme.toggle', { defaultValue: 'Toggle theme' })}>
-            <IconButton
-              color="inherit"
-              onClick={toggleTheme}
-              aria-label={t('theme.toggle', { defaultValue: 'Toggle theme' })}
-            >
-              {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
-            </IconButton>
-          </Tooltip>
-          {languages.length > 0 && (
+          {settingsMenu ? (
             <>
-              <Tooltip title={t('language.select', { defaultValue: 'Language' })}>
+              <Tooltip title={t('settings.title', { defaultValue: 'Settings' })}>
                 <IconButton
                   color="inherit"
-                  onClick={(e) => setLangAnchor(e.currentTarget)}
-                  aria-label={t('language.select', { defaultValue: 'Language' })}
+                  onClick={(e) => setSettingsAnchor(e.currentTarget)}
+                  aria-label={t('settings.title', { defaultValue: 'Settings' })}
                 >
-                  <TranslateIcon />
+                  <SettingsIcon />
                 </IconButton>
               </Tooltip>
               <Menu
-                anchorEl={langAnchor}
-                open={Boolean(langAnchor)}
-                onClose={() => setLangAnchor(null)}
+                anchorEl={settingsAnchor}
+                open={Boolean(settingsAnchor)}
+                onClose={() => setSettingsAnchor(null)}
               >
+                <MenuItem
+                  onClick={() => {
+                    toggleTheme()
+                    setSettingsAnchor(null)
+                  }}
+                >
+                  <ListItemIcon>
+                    {mode === 'dark' ? (
+                      <Brightness7 fontSize="small" />
+                    ) : (
+                      <Brightness4 fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  {mode === 'dark'
+                    ? t('settings.themeLight', { defaultValue: 'Light mode' })
+                    : t('settings.themeDark', { defaultValue: 'Dark mode' })}
+                </MenuItem>
+                {languages.length > 0 && <Divider />}
                 {languages.map((l) => (
                   <MenuItem
                     key={l.code}
                     selected={i18n.language?.startsWith(l.code)}
                     onClick={() => changeLanguage(l.code)}
                   >
+                    <ListItemIcon>
+                      {i18n.language?.startsWith(l.code) ? <CheckIcon fontSize="small" /> : null}
+                    </ListItemIcon>
                     {l.label}
                   </MenuItem>
                 ))}
               </Menu>
             </>
+          ) : (
+            <>
+              <Tooltip title={t('theme.toggle', { defaultValue: 'Toggle theme' })}>
+                <IconButton
+                  color="inherit"
+                  onClick={toggleTheme}
+                  aria-label={t('theme.toggle', { defaultValue: 'Toggle theme' })}
+                >
+                  {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+                </IconButton>
+              </Tooltip>
+              {languages.length > 0 && (
+                <>
+                  <Tooltip title={t('language.select', { defaultValue: 'Language' })}>
+                    <IconButton
+                      color="inherit"
+                      onClick={(e) => setLangAnchor(e.currentTarget)}
+                      aria-label={t('language.select', { defaultValue: 'Language' })}
+                    >
+                      <TranslateIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Menu
+                    anchorEl={langAnchor}
+                    open={Boolean(langAnchor)}
+                    onClose={() => setLangAnchor(null)}
+                  >
+                    {languages.map((l) => (
+                      <MenuItem
+                        key={l.code}
+                        selected={i18n.language?.startsWith(l.code)}
+                        onClick={() => changeLanguage(l.code)}
+                      >
+                        {l.label}
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </>
+              )}
+            </>
           )}
+          {supportMenu}
           {isAuthenticated ? (
             <>
               <Tooltip title={user?.name ?? user?.email ?? ''}>
