@@ -1,10 +1,11 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { Suspense, useMemo, useState, type ReactNode } from 'react'
 import { Outlet, Link as RouterLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AppBar,
   Box,
   Button,
+  CircularProgress,
   Collapse,
   Container,
   Divider,
@@ -59,6 +60,24 @@ export interface SuiteLayoutProps {
   /** Overlay element rendered at the root (e.g. a command palette). */
   commandPalette?: ReactNode
   /**
+   * Content rendered inside the main container, above the routed Outlet (e.g.
+   * breadcrumbs or an advisory banner). Re-renders with the route.
+   */
+  contentHeader?: ReactNode
+  /**
+   * Right inset (px) applied to the main content on desktop, e.g. to make room
+   * for a persistent right-hand help panel. Animated. Default 0.
+   */
+  contentInsetRight?: number
+  /** Fallback shown while a lazy routed page loads. Default a centered spinner. */
+  contentFallback?: ReactNode
+  /**
+   * When set, collapsible group open/closed state is persisted to localStorage
+   * under this key and every group defaults to open. Omit for in-memory state
+   * where only the active group starts open.
+   */
+  groupStateStorageKey?: string
+  /**
    * Combine the theme toggle and language picker into a single Settings (gear)
    * menu instead of separate AppBar controls. Default false (separate controls).
    */
@@ -90,6 +109,10 @@ export function SuiteLayout({
   suiteSwitcher,
   appBarActions,
   commandPalette,
+  contentHeader,
+  contentInsetRight = 0,
+  contentFallback,
+  groupStateStorageKey,
   settingsMenu = false,
   supportMenu,
   languages = [],
@@ -107,7 +130,17 @@ export function SuiteLayout({
   const [accountAnchor, setAccountAnchor] = useState<null | HTMLElement>(null)
   const [langAnchor, setLangAnchor] = useState<null | HTMLElement>(null)
   const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null)
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    if (!groupStateStorageKey) return {}
+    try {
+      const stored = localStorage.getItem(groupStateStorageKey)
+      if (stored) return JSON.parse(stored) as Record<string, boolean>
+    } catch {
+      // ignore malformed storage
+    }
+    // Default every group to open when persistence is enabled.
+    return Object.fromEntries(navGroups.map((g) => [g.key, true]))
+  })
 
   const visibleGroups = useMemo(
     () =>
@@ -127,7 +160,23 @@ export function SuiteLayout({
     [visibleGroups, location.pathname],
   )
 
-  const isGroupOpen = (key: string) => openGroups[key] ?? key === activeGroupKey
+  const isGroupOpen = (key: string) =>
+    openGroups[key] ?? (groupStateStorageKey ? true : key === activeGroupKey)
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => {
+      const current = prev[key] ?? (groupStateStorageKey ? true : key === activeGroupKey)
+      const next = { ...prev, [key]: !current }
+      if (groupStateStorageKey) {
+        try {
+          localStorage.setItem(groupStateStorageKey, JSON.stringify(next))
+        } catch {
+          /* ignore storage write failures */
+        }
+      }
+      return next
+    })
+  }
 
   const isActive = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path)
@@ -180,9 +229,12 @@ export function SuiteLayout({
       {visibleGroups.map((group) => (
         <Box key={group.key}>
           <Divider />
-          <ListItemButton
-            onClick={() => setOpenGroups((p) => ({ ...p, [group.key]: !isGroupOpen(group.key) }))}
-          >
+          {group.standaloneItem && (
+            <List component="ul" disablePadding>
+              {renderItem(group.standaloneItem)}
+            </List>
+          )}
+          <ListItemButton onClick={() => toggleGroup(group.key)}>
             <ListItemText
               primary={
                 <Typography variant="overline" color="text.secondary">
@@ -403,10 +455,30 @@ export function SuiteLayout({
         </Drawer>
       </Box>
 
-      <Box component="main" id="main-content" sx={{ flexGrow: 1, minWidth: 0 }}>
+      <Box
+        component="main"
+        id="main-content"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          transition: theme.transitions.create('margin'),
+          mr: { md: contentInsetRight ? `${contentInsetRight}px` : 0 },
+        }}
+      >
         <Toolbar />
         <Container maxWidth={maxWidth} sx={{ py: 4 }}>
-          <Outlet />
+          {contentHeader}
+          <Suspense
+            fallback={
+              contentFallback ?? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                  <CircularProgress aria-label={t('common.loading', { defaultValue: 'Loading' })} />
+                </Box>
+              )
+            }
+          >
+            <Outlet />
+          </Suspense>
         </Container>
       </Box>
 

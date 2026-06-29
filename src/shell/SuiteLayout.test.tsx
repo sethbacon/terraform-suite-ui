@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { lazy, type ReactNode } from 'react'
 import {
   fireEvent,
   render,
@@ -11,6 +12,7 @@ import StorageIcon from '@mui/icons-material/Storage'
 import { SuiteLayout, type SuiteLayoutProps } from './SuiteLayout'
 import { SuiteThemeProvider } from '../theme'
 import { AuthProvider, type AuthApi } from '../identity'
+import type { NavGroup } from './types'
 
 const api: AuthApi = {
   getCurrentUser: vi.fn().mockResolvedValue({
@@ -27,14 +29,29 @@ const api: AuthApi = {
 
 const homeItem = { path: '/', labelKey: 'Home', icon: <StorageIcon />, scope: null }
 
-function renderLayout(props: Partial<SuiteLayoutProps> = {}) {
+function makeApi(scopes: string[] = ['admin']): AuthApi {
+  return {
+    ...api,
+    getCurrentUser: vi.fn().mockResolvedValue({
+      user: { id: '1', email: 'a@b.com', name: 'Ada' },
+      memberships: [],
+      allowed_scopes: scopes,
+    }),
+  }
+}
+
+function renderLayout(
+  props: Partial<SuiteLayoutProps> = {},
+  opts: { authApi?: AuthApi; child?: ReactNode } = {},
+) {
+  const { authApi = api, child = <div>routed content</div> } = opts
   return render(
     <SuiteThemeProvider defaultProductName="Test Suite">
-      <AuthProvider api={api}>
+      <AuthProvider api={authApi}>
         <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route element={<SuiteLayout homeItem={homeItem} {...props} />}>
-              <Route path="/" element={<div>routed content</div>} />
+              <Route path="/" element={child} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -42,6 +59,17 @@ function renderLayout(props: Partial<SuiteLayoutProps> = {}) {
     </SuiteThemeProvider>,
   )
 }
+
+const adminGroup: NavGroup = {
+  key: 'admin',
+  labelKey: 'Administration',
+  standaloneItem: { path: '/admin', labelKey: 'Dashboard', icon: <StorageIcon />, scope: null },
+  items: [{ path: '/admin/users', labelKey: 'Users', icon: <StorageIcon />, scope: 'admin' }],
+}
+
+beforeEach(() => {
+  localStorage.clear()
+})
 
 describe('SuiteLayout', () => {
   it('renders the brand product name and the routed content', async () => {
@@ -88,5 +116,55 @@ describe('SuiteLayout', () => {
   it('renders the supportMenu slot', async () => {
     renderLayout({ supportMenu: <button>support-slot</button> })
     expect(await screen.findByRole('button', { name: 'support-slot' })).toBeInTheDocument()
+  })
+
+  it('renders the contentHeader above the routed content', async () => {
+    renderLayout({ contentHeader: <div>breadcrumbs-slot</div> })
+    expect(await screen.findByText('breadcrumbs-slot')).toBeInTheDocument()
+    expect(screen.getByText('routed content')).toBeInTheDocument()
+  })
+
+  it('renders a group standaloneItem when the group is visible', async () => {
+    renderLayout({ navGroups: [adminGroup] }, { authApi: makeApi(['admin']) })
+    expect(await screen.findByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByText('Administration')).toBeInTheDocument()
+  })
+
+  it('hides the standaloneItem when the group is scope-filtered out', async () => {
+    renderLayout({ navGroups: [adminGroup] }, { authApi: makeApi([]) })
+    await screen.findByText('Test Suite')
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: 'Users' })).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
+  })
+
+  it('persists group open-state to localStorage when groupStateStorageKey is set', async () => {
+    renderLayout(
+      { navGroups: [adminGroup], groupStateStorageKey: 'test-groups' },
+      { authApi: makeApi(['admin']) },
+    )
+    expect(await screen.findByRole('link', { name: 'Users' })).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Administration'))
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem('test-groups') ?? '{}').admin).toBe(false),
+    )
+  })
+
+  it('restores collapsed group state from localStorage', async () => {
+    localStorage.setItem('test-groups', JSON.stringify({ admin: false }))
+    renderLayout(
+      { navGroups: [adminGroup], groupStateStorageKey: 'test-groups' },
+      { authApi: makeApi(['admin']) },
+    )
+    expect(await screen.findByText('Administration')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Users' })).not.toBeInTheDocument()
+  })
+
+  it('shows a loading fallback while a lazy page resolves', async () => {
+    const Lazy = lazy(() => Promise.resolve({ default: () => <div>lazy-loaded</div> }))
+    renderLayout({}, { child: <Lazy /> })
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(await screen.findByText('lazy-loaded')).toBeInTheDocument()
   })
 })
