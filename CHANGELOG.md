@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.4.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.3.0...v0.4.0) (2026-06-29)
+
+
+### Features
+
+* **shell:** add content slots, Suspense, standalone nav items, persisted groups to SuiteLayout ([c0df035](https://github.com/sethbacon/terraform-suite-ui/commit/c0df0355fab4ab0730a9cb9fcbaf2184cb325e57))
+* **shell:** content slots, Suspense, standalone nav items + persisted groups for SuiteLayout ([a92e1df](https://github.com/sethbacon/terraform-suite-ui/commit/a92e1df4b67cc3e5c8428656579f0ac919a68612))
+
 ## [0.3.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.2.0...v0.3.0) (2026-06-29)
 
 
