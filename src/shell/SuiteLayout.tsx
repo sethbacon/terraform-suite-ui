@@ -487,7 +487,16 @@ export function SuiteLayout({
         }}
       >
         <Toolbar />
-        <Container maxWidth={maxWidth} sx={{ py: 4, mx: 0 }}>
+        <Container
+          maxWidth={maxWidth}
+          sx={{
+            py: 4,
+            mx: 0,
+            // Left-align any page-provided nested Containers instead of letting
+            // their default `auto` margins center them within the content area.
+            '& .MuiContainer-root': { marginLeft: 0 },
+          }}
+        >
           {contentHeader}
           <Suspense
             fallback={
