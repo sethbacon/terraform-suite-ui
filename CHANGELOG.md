@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.4.1...v0.5.0) (2026-06-30)
+
+
+### Features
+
+* **shell:** render the whitelabel logo as the SuiteLayout brand ([73f88b9](https://github.com/sethbacon/terraform-suite-ui/commit/73f88b9cf067705d47e9f3f6dcdce8c4dd372871))
+* **shell:** render the whitelabel logo as the SuiteLayout brand ([e66e16f](https://github.com/sethbacon/terraform-suite-ui/commit/e66e16f2ce0d6d5f740f0a77fef41c9827f67467))
+
 ## [0.4.1](https://github.com/sethbacon/terraform-suite-ui/compare/v0.4.0...v0.4.1) (2026-06-30)
 
 
