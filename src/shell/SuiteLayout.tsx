@@ -466,7 +466,7 @@ export function SuiteLayout({
         }}
       >
         <Toolbar />
-        <Container maxWidth={maxWidth} sx={{ py: 4 }}>
+        <Container maxWidth={maxWidth} sx={{ py: 4, mx: 0 }}>
           {contentHeader}
           <Suspense
             fallback={
