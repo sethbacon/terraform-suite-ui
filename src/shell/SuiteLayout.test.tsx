@@ -78,6 +78,27 @@ describe('SuiteLayout', () => {
     expect(screen.getByText('routed content')).toBeInTheDocument()
   })
 
+  it('renders the whitelabel logo as the brand when the theme provides one', async () => {
+    render(
+      <SuiteThemeProvider
+        defaultProductName="Test Suite"
+        getUITheme={() => ({ logo_url: 'https://example.test/logo.png', product_name: 'Test Suite' })}
+      >
+        <AuthProvider api={api}>
+          <MemoryRouter initialEntries={['/']}>
+            <Routes>
+              <Route element={<SuiteLayout homeItem={homeItem} />}>
+                <Route path="/" element={<div>routed content</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </SuiteThemeProvider>,
+    )
+    const logo = await screen.findByRole('img', { name: 'Test Suite' })
+    expect(logo).toHaveAttribute('src', 'https://example.test/logo.png')
+  })
+
   it('shows separate theme and language controls by default', async () => {
     renderLayout({ languages: [{ code: 'en', label: 'English' }] })
     expect(await screen.findByRole('button', { name: 'Toggle theme' })).toBeInTheDocument()
