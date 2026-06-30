@@ -78,6 +78,13 @@ describe('SuiteLayout', () => {
     expect(screen.getByText('routed content')).toBeInTheDocument()
   })
 
+  it('shows the user name and email in the account menu', async () => {
+    renderLayout()
+    fireEvent.click(await screen.findByRole('button', { name: 'Account' }))
+    expect(screen.getByText('Ada')).toBeInTheDocument()
+    expect(screen.getByText('a@b.com')).toBeInTheDocument()
+  })
+
   it('renders the whitelabel logo as the brand when the theme provides one', async () => {
     render(
       <SuiteThemeProvider
