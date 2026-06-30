@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.1](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.0...v0.5.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* **shell:** show user name and email in the account menu ([54d719e](https://github.com/sethbacon/terraform-suite-ui/commit/54d719e2d17b0f90a3dfa63987ed49ab6c448412))
+* **shell:** show user name and email in the account menu ([4a1755d](https://github.com/sethbacon/terraform-suite-ui/commit/4a1755d52f6af3ccca89c22fb78fb7223daa461c))
+
 ## [0.5.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.4.1...v0.5.0) (2026-06-30)
 
 
