@@ -430,7 +430,16 @@ export function SuiteLayout({
                 open={Boolean(accountAnchor)}
                 onClose={() => setAccountAnchor(null)}
               >
-                <MenuItem disabled>{user?.name ?? user?.email}</MenuItem>
+                <MenuItem disabled sx={{ opacity: 1 }}>
+                  <Box>
+                    {user?.name && <Typography variant="body2">{user.name}</Typography>}
+                    {user?.email && (
+                      <Typography variant="caption" color="text.secondary">
+                        {user.email}
+                      </Typography>
+                    )}
+                  </Box>
+                </MenuItem>
                 <Divider />
                 <MenuItem
                   onClick={() => {
