@@ -100,7 +100,7 @@ export interface SuiteLayoutProps {
  * suite switcher slot, theme toggle, language + account menus), a responsive
  * Drawer rendering the injected nav (scope-filtered, collapsible groups, active
  * styling), a skip link, the routed content outlet, and the session-expiry
- * warning. Branding (product name) comes from the theme/whitelabel context.
+ * warning. Branding (logo or product name) comes from the theme/whitelabel context.
  */
 export function SuiteLayout({
   homeItem,
@@ -122,7 +122,7 @@ export function SuiteLayout({
   const theme = useTheme()
   const { t, i18n } = useTranslation()
   const location = useLocation()
-  const { mode, toggleTheme, productName } = useThemeMode()
+  const { mode, toggleTheme, productName, logoUrl } = useThemeMode()
   const { isAuthenticated, user, logout, hasScope } = useAuth()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
 
@@ -297,19 +297,31 @@ export function SuiteLayout({
             </IconButton>
           )}
           {suiteSwitcher}
-          <Typography
-            variant="h6"
+          <Box
             component={RouterLink}
             to="/"
+            aria-label={productName}
             sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
               color: 'inherit',
               textDecoration: 'none',
-              fontWeight: 700,
               ml: suiteSwitcher ? 1 : 0,
             }}
           >
-            {productName}
-          </Typography>
+            {logoUrl ? (
+              <Box
+                component="img"
+                src={logoUrl}
+                alt={productName}
+                sx={{ height: 32, maxWidth: 180, objectFit: 'contain', display: 'block' }}
+              />
+            ) : (
+              <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+                {productName}
+              </Typography>
+            )}
+          </Box>
           <Box sx={{ flexGrow: 1 }} />
           {appBarActions}
           {settingsMenu ? (
