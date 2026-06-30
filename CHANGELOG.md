@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.2](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.1...v0.5.2) (2026-06-30)
+
+
+### Bug Fixes
+
+* **shell:** left-align nested page Containers in content area ([013c05c](https://github.com/sethbacon/terraform-suite-ui/commit/013c05cbc2c2dfdaf0e11a19c10c90d0eb4a6081))
+* **shell:** left-align nested page Containers in content area ([7b58330](https://github.com/sethbacon/terraform-suite-ui/commit/7b583301d99080aacf359389c2267bcffb67bc59))
+
 ## [0.5.1](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.0...v0.5.1) (2026-06-30)
 
 
