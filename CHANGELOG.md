@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.4.1](https://github.com/sethbacon/terraform-suite-ui/compare/v0.4.0...v0.4.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* **shell:** left-align SuiteLayout content container ([0185b78](https://github.com/sethbacon/terraform-suite-ui/commit/0185b781785bb1fec4287d0cdbd3e917c33917d3))
+* **shell:** left-align SuiteLayout content container ([8b13771](https://github.com/sethbacon/terraform-suite-ui/commit/8b137719cafc96fa11da898c842ffad8a83126dd))
+
 ## [0.4.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.3.0...v0.4.0) (2026-06-29)
 
 
