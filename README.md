@@ -8,14 +8,14 @@ visual and behavioural parity from a single source of truth.
 
 ## What's inside
 
-| Area           | Exports                                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------------------------- |
-| **Tokens**     | `BRAND_PRIMARY`, `SECONDARY_LIGHT`, `SECONDARY_DARK`, dark surfaces, font stack, `BORDER_RADIUS`         |
-| **Theme**      | `createAppTheme(mode, prefersReducedMotion, direction, overrides)`, `SuiteThemeProvider`, `useThemeMode` |
+| Area           | Exports                                                                                                                      |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Tokens**     | `BRAND_PRIMARY`, `SECONDARY_LIGHT`, `SECONDARY_DARK`, dark surfaces, font stack, `BORDER_RADIUS`                             |
+| **Theme**      | `createAppTheme(mode, prefersReducedMotion, direction, overrides)`, `SuiteThemeProvider`, `useThemeMode`                     |
 | **Identity**   | `AuthProvider` (parameterised by an `AuthApi`), `useAuth` (returns `hasScope`), `ADMIN_SCOPE`, `SessionExpiryWarning`, types |
-| **Consent**    | `ConsentProvider`, `useConsent`, `ConsentBanner`                                                         |
-| **Components** | `PageHeader`, `DashboardCard`, `Page`                                                                    |
-| **Shell**      | `SuiteLayout` (parameterised by nav + branding + auth), `SuiteSwitcher`, nav types                       |
+| **Consent**    | `ConsentProvider`, `useConsent`, `ConsentBanner`                                                                             |
+| **Components** | `PageHeader`, `DashboardCard`, `Page`                                                                                        |
+| **Shell**      | `SuiteLayout` (parameterised by nav + branding + auth), `SuiteSwitcher`, nav types                                           |
 
 Framework packages (React, MUI, Emotion, i18next, react-router, react-query) are
 **peer dependencies** — the consuming app provides a single copy at runtime.

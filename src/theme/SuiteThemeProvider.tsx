@@ -86,8 +86,8 @@ export function SuiteThemeProvider({
       // eslint-disable-next-line no-console -- one-time integration guidance
       console.warn(
         'SuiteThemeProvider: no storageKey prop was given, so the theme preference is persisted ' +
-          `under the generic key "${DEFAULT_STORAGE_KEY}". If this app shares an origin with a ` +
-          'sibling suite app, pass an app-specific storageKey to avoid the two apps colliding.',
+        `under the generic key "${DEFAULT_STORAGE_KEY}". If this app shares an origin with a ` +
+        'sibling suite app, pass an app-specific storageKey to avoid the two apps colliding.',
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only

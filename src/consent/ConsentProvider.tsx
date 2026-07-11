@@ -57,8 +57,8 @@ export function ConsentProvider({ children, storageKey = DEFAULT_CONSENT_KEY }: 
       // eslint-disable-next-line no-console -- one-time integration guidance
       console.warn(
         'ConsentProvider: no storageKey prop was given, so consent preferences are persisted under ' +
-          `the generic key "${DEFAULT_CONSENT_KEY}". If this app shares an origin with a sibling ` +
-          'suite app, pass an app-specific storageKey to avoid the two apps colliding.',
+        `the generic key "${DEFAULT_CONSENT_KEY}". If this app shares an origin with a sibling ` +
+        'suite app, pass an app-specific storageKey to avoid the two apps colliding.',
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only

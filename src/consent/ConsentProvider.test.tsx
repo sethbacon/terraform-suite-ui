@@ -106,7 +106,7 @@ describe('ConsentProvider', () => {
   it('warns once when no storageKey is supplied (default-key collision risk)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     function NoKey() {
-      useEffect(() => {}, [])
+      useEffect(() => { }, [])
       return (
         <ConsentProvider>
           <Probe />
