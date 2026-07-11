@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.3](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.2...v0.5.3) (2026-07-11)
+
+
+### Bug Fixes
+
+* address 2026-07-10 security audit findings (2 high, 16 medium, misc low) ([f847427](https://github.com/sethbacon/terraform-suite-ui/commit/f847427412858c43c90714818466b3406a4af6e4))
+* **ci:** relax commitlint body-max-line-length rule ([4ed035c](https://github.com/sethbacon/terraform-suite-ui/commit/4ed035cb03a74d2733d97127ba27e97e1cec32ac))
+* harden identity, shell, consent and theme modules per security audit ([6c36deb](https://github.com/sethbacon/terraform-suite-ui/commit/6c36deb587704eea81f42107aa82c498ec160eef))
+
+
+### Documentation
+
+* add SECURITY.md and a security-model section to README ([a4969a5](https://github.com/sethbacon/terraform-suite-ui/commit/a4969a5e2614a9f1b846417b8cd720dc00638dd3))
+
 ## [0.5.2](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.1...v0.5.2) (2026-06-30)
 
 
