@@ -25,7 +25,7 @@ describe('SuiteSwitcher', () => {
     // A single sibling renders a direct-open button (no menu), labelled by the tooltip.
     fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
     expect(window.name).toBe('terraform-registry')
-    expect(open).toHaveBeenCalledWith('https://sm.example', 'terraform-state-manager')
+    expect(open).toHaveBeenCalledWith('https://sm.example', 'terraform-state-manager', 'noopener,noreferrer')
   })
 
   it('opens a menu when given several links', async () => {
@@ -41,13 +41,27 @@ describe('SuiteSwitcher', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Switch app' }))
     fireEvent.click(await screen.findByText('State Manager'))
-    expect(open).toHaveBeenCalledWith('https://sm.example', 'terraform-state-manager')
+    expect(open).toHaveBeenCalledWith('https://sm.example', 'terraform-state-manager', 'noopener,noreferrer')
   })
 
   it('falls back to a plain new tab when a link has no appId', () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
     render(<SuiteSwitcher links={[{ label: 'Docs', href: 'https://docs.example' }]} tooltip="Open Docs" />)
     fireEvent.click(screen.getByRole('button', { name: 'Open Docs' }))
-    expect(open).toHaveBeenCalledWith('https://docs.example')
+    expect(open).toHaveBeenCalledWith('https://docs.example', '_blank', 'noopener,noreferrer')
+  })
+
+  it('refuses to open a link with an unsafe URL scheme', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    render(
+      <SuiteSwitcher
+        links={[{ label: 'Evil', href: 'javascript:alert(1)', appId: 'evil' }]}
+        tooltip="Open Evil"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Open Evil' }))
+    expect(open).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('unsafe link href'))
   })
 })

@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { createAppTheme } from './createAppTheme'
 import { RTL_LANGUAGES } from '../tokens'
 import type { Direction, SuiteThemeContextValue, ThemeMode, UIThemeConfig } from './types'
+import { isSafeUrl } from '../utils/url'
 
 const ThemeContext = createContext<SuiteThemeContextValue | undefined>(undefined)
 
@@ -22,14 +23,31 @@ function getDirection(lang: string): Direction {
   return RTL_LANGUAGES.has(lang.split('-')[0]) ? 'rtl' : 'ltr'
 }
 
+function safeGetItem(storageKey: string): string | null {
+  try {
+    return localStorage.getItem(storageKey)
+  } catch {
+    return null
+  }
+}
+
+function safeSetItem(storageKey: string, value: string): void {
+  try {
+    localStorage.setItem(storageKey, value)
+  } catch {
+    // Storage unavailable (private browsing, quota exceeded, etc.) — the in-memory
+    // theme state is still correct for this session; just skip persistence.
+  }
+}
+
 function readInitialMode(storageKey: string): ThemeMode {
-  const stored = localStorage.getItem(storageKey)
+  const stored = safeGetItem(storageKey)
   if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
 }
 
 function readReducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
 }
 
 export interface SuiteThemeProviderProps {
@@ -61,11 +79,24 @@ export function SuiteThemeProvider({
   const [mode, setMode] = useState<ThemeMode>(() => readInitialMode(storageKey))
   const [direction, setDirection] = useState<Direction>(() => getDirection(i18n.language ?? 'en'))
   const [uiTheme, setUiTheme] = useState<UIThemeConfig | null>(null)
+  const [reducedMotion, setReducedMotion] = useState<boolean>(readReducedMotion)
+
+  useEffect(() => {
+    if (storageKey === DEFAULT_STORAGE_KEY) {
+      // eslint-disable-next-line no-console -- one-time integration guidance
+      console.warn(
+        'SuiteThemeProvider: no storageKey prop was given, so the theme preference is persisted ' +
+          `under the generic key "${DEFAULT_STORAGE_KEY}". If this app shares an origin with a ` +
+          'sibling suite app, pass an app-specific storageKey to avoid the two apps colliding.',
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only
+  }, [])
 
   const toggleTheme = useCallback(() => {
     setMode((current) => {
       const next: ThemeMode = current === 'light' ? 'dark' : 'light'
-      localStorage.setItem(storageKey, next)
+      safeSetItem(storageKey, next)
       return next
     })
   }, [storageKey])
@@ -89,13 +120,21 @@ export function SuiteThemeProvider({
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem(storageKey)) {
+      if (!safeGetItem(storageKey)) {
         setMode(e.matches ? 'dark' : 'light')
       }
     }
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [storageKey])
+
+  // Reduced-motion is OS-driven too; keep it live like the color-scheme listener above.
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const handleChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches)
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
 
   // Fetch the runtime whitelabel config once on mount; fall back to defaults.
   useEffect(() => {
@@ -105,7 +144,7 @@ export function SuiteThemeProvider({
       .then((config) => {
         if (cancelled || !config) return
         setUiTheme(config)
-        if (config.favicon_url) {
+        if (config.favicon_url && isSafeUrl(config.favicon_url)) {
           const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
           if (link) link.href = config.favicon_url
         }
@@ -118,7 +157,6 @@ export function SuiteThemeProvider({
     }
   }, [getUITheme])
 
-  const reducedMotion = useMemo(readReducedMotion, [])
   const theme = useMemo(
     () =>
       createAppTheme(mode, reducedMotion, direction, {
@@ -135,8 +173,9 @@ export function SuiteThemeProvider({
       toggleTheme,
       direction,
       productName: uiTheme?.product_name ?? defaultProductName,
-      logoUrl: uiTheme?.logo_url ?? null,
-      loginHeroUrl: uiTheme?.login_hero_url ?? null,
+      logoUrl: uiTheme?.logo_url && isSafeUrl(uiTheme.logo_url) ? uiTheme.logo_url : null,
+      loginHeroUrl:
+        uiTheme?.login_hero_url && isSafeUrl(uiTheme.login_hero_url) ? uiTheme.login_hero_url : null,
     }),
     [mode, toggleTheme, direction, uiTheme, defaultProductName],
   )

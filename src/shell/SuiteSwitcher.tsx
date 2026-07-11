@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { IconButton, ListItemText, Menu, MenuItem, Tooltip } from '@mui/material'
 import AppsIcon from '@mui/icons-material/Apps'
 import type { SuiteLink } from './types'
+import { isSafeUrl } from '../utils/url'
 
 export interface SuiteSwitcherProps {
   links: SuiteLink[]
@@ -18,16 +19,24 @@ export interface SuiteSwitcherProps {
 /**
  * Opens a sibling suite app. When the link carries an appId, the current tab
  * first claims currentAppId, then the sibling opens under the stable window name
- * appId so repeat clicks re-navigate (and refocus) the same tab. Siblings are
- * trusted first-party apps, so noopener/noreferrer are intentionally omitted
- * (they would force a fresh browsing context and defeat the tab reuse).
+ * appId so repeat clicks re-navigate (and refocus) the same tab. `link.href` is
+ * validated against an http(s)/mailto/tel/relative allowlist before opening (see
+ * {@link isSafeUrl}) — a shared component's navigation sink is reachable from every
+ * consuming app, so it is validated here as defense-in-depth even though today's
+ * callers are expected to supply first-party suite URLs. `noopener,noreferrer` is
+ * always passed so the opened tab cannot reach back via `window.opener`.
  */
 function openSuiteLink(link: SuiteLink, currentAppId?: string): void {
+  if (!isSafeUrl(link.href)) {
+    // eslint-disable-next-line no-console -- surfaced for the integrating app to notice/fix
+    console.warn(`SuiteSwitcher: refusing to open unsafe link href "${link.href}"`)
+    return
+  }
   if (link.appId) {
     if (currentAppId) window.name = currentAppId
-    window.open(link.href, link.appId)?.focus()
+    window.open(link.href, link.appId, 'noopener,noreferrer')?.focus()
   } else {
-    window.open(link.href)
+    window.open(link.href, '_blank', 'noopener,noreferrer')
   }
 }
 

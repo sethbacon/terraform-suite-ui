@@ -27,4 +27,25 @@ describe('ConsentBanner', () => {
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
+
+  it('renders a custom privacyPolicyHref when it is a safe URL', () => {
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <ConsentBanner privacyPolicyHref="https://example.com/legal/privacy" />
+      </ConsentProvider>,
+    )
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute(
+      'href',
+      'https://example.com/legal/privacy',
+    )
+  })
+
+  it('falls back to the default href when privacyPolicyHref is an unsafe scheme', () => {
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <ConsentBanner privacyPolicyHref="javascript:alert(1)" />
+      </ConsentProvider>,
+    )
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
+  })
 })
