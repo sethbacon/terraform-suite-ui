@@ -2,6 +2,13 @@ name: Publish package
 
 # Publishes @sethbacon/terraform-suite-ui to GitHub Packages when a GitHub
 # Release is published (tag the release vX.Y.Z to match package.json version).
+#
+# workflow_dispatch is kept only for re-running a publish against an EXISTING,
+# already-tagged release (e.g. a transient registry failure) — the
+# "Verify tag matches package.json version" step below refuses to publish
+# unless the checked-out ref is exactly the git tag `v<package.json version>`,
+# so a manual run against an arbitrary branch/commit can no longer bypass the
+# tagged-release flow.
 on:
   release:
     types: [published]
@@ -13,9 +20,15 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Requires a required-reviewer / deployment-branch protection rule on the
+    # "release" environment (Settings > Environments) for that gate to take
+    # effect; the environment reference alone scopes secrets to this job.
+    environment: release
     permissions:
       contents: read
       packages: write
+      id-token: write # for actions/attest-build-provenance
+      attestations: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -27,6 +40,15 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@sethbacon"
 
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF}" != "refs/tags/${PKG_VERSION}" ]; then
+            echo "::error::GITHUB_REF (${GITHUB_REF}) does not match package.json version (${PKG_VERSION}). Refusing to publish an unreviewed/untagged ref."
+            exit 1
+          fi
+          echo "Publishing ${PKG_VERSION} from ${GITHUB_REF} — OK"
+
       - run: npm ci
 
       - run: npm run typecheck
@@ -35,6 +57,26 @@ jobs:
 
       - run: npm run build
 
+      - name: Verify the publish tarball only contains dist + docs
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          UNEXPECTED=$(node -e "
+            const pkg = require('/tmp/pack.json')[0];
+            const bad = pkg.files
+              .map(f => f.path)
+              .filter(p => !p.startsWith('dist/') && !['package.json', 'README.md', 'LICENSE', 'NOTICE'].includes(p));
+            console.log(bad.join('\n'));
+          ")
+          if [ -n "$UNEXPECTED" ]; then
+            echo "::error::Unexpected file(s) would be published: $UNEXPECTED"
+            exit 1
+          fi
+
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate build provenance attestation
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/**

@@ -11,6 +11,7 @@ import {
   FormControlLabel,
 } from '@mui/material'
 import { useConsent } from './ConsentProvider'
+import { isSafeUrl } from '../utils/url'
 
 export interface ConsentBannerProps {
   /** Link target for the privacy policy referenced in the banner copy. */
@@ -26,6 +27,7 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
   const { t } = useTranslation()
   const { hasConsented, preferences, updatePreferences, acceptAll, rejectAll } = useConsent()
   const [showDetails, setShowDetails] = useState(false)
+  const safePrivacyPolicyHref = isSafeUrl(privacyPolicyHref) ? privacyPolicyHref : '/privacy'
 
   if (hasConsented) return null
 
@@ -57,7 +59,7 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
         >
           We use cookies and similar technologies. Essential cookies are always active. You may
           choose to enable additional categories below. See our{' '}
-          <a href={privacyPolicyHref} style={{ color: 'inherit' }}>
+          <a href={safePrivacyPolicyHref} style={{ color: 'inherit' }}>
             Privacy Policy
           </a>{' '}
           for details.

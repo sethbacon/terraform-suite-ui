@@ -24,6 +24,5 @@ export default defineConfig({
     'i18next',
     'react-i18next',
     'react-router-dom',
-    '@tanstack/react-query',
   ],
 })
