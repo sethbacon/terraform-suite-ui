@@ -12,7 +12,7 @@ visual and behavioural parity from a single source of truth.
 | -------------- | -------------------------------------------------------------------------------------------------------- |
 | **Tokens**     | `BRAND_PRIMARY`, `SECONDARY_LIGHT`, `SECONDARY_DARK`, dark surfaces, font stack, `BORDER_RADIUS`         |
 | **Theme**      | `createAppTheme(mode, prefersReducedMotion, direction, overrides)`, `SuiteThemeProvider`, `useThemeMode` |
-| **Identity**   | `AuthProvider` (parameterised by an `AuthApi`), `useAuth`, `hasScope`, `SessionExpiryWarning`, types     |
+| **Identity**   | `AuthProvider` (parameterised by an `AuthApi`), `useAuth` (returns `hasScope`), `ADMIN_SCOPE`, `SessionExpiryWarning`, types |
 | **Consent**    | `ConsentProvider`, `useConsent`, `ConsentBanner`                                                         |
 | **Components** | `PageHeader`, `DashboardCard`, `Page`                                                                    |
 | **Shell**      | `SuiteLayout` (parameterised by nav + branding + auth), `SuiteSwitcher`, nav types                       |
@@ -36,6 +36,28 @@ create a GitHub Release tagged `vX.Y.Z` (matching `package.json`) and the workfl
 builds, type-checks, tests, and runs `npm publish` to `https://npm.pkg.github.com`
 using the repo's `GITHUB_TOKEN`.
 
+**Integrity guarantees for consumers:**
+
+- The publish job runs behind a GitHub Environment (`release`) and refuses to publish unless the
+  triggering ref is exactly the git tag matching `package.json`'s version — a manual
+  `workflow_dispatch` run against an arbitrary branch is rejected, not just discouraged.
+- Before `npm publish`, CI asserts the tarball (`npm pack --dry-run`) only contains `dist/` plus
+  `package.json`/`README.md`/`LICENSE`/`NOTICE` — no source, tests, or config files ship.
+- Every release generates a [GitHub Artifact Attestation](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
+  for the built `dist/` output, which you can verify against a downloaded/installed package with:
+
+  ```bash
+  gh attestation verify --repo sethbacon/terraform-suite-ui node_modules/@sethbacon/terraform-suite-ui/dist/index.js
+  ```
+
+- CI runs `npm audit --audit-level=high` on every push/PR, and CodeQL (`javascript-typescript`)
+  runs on every push/PR plus a weekly schedule (see [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)).
+- A [`commitlint`](https://commitlint.js.org/) check on every PR enforces Conventional Commits,
+  since [release-please](.github/workflows/release-please.yml) derives version bumps solely from
+  commit messages.
+
+See [SECURITY.md](SECURITY.md) for the vulnerability disclosure policy.
+
 ## Consuming (in each frontend)
 
 Add to the app's `.npmrc` so the scope resolves to GitHub Packages:
@@ -57,3 +79,25 @@ import { SuiteThemeProvider, PageHeader, useAuth } from '@sethbacon/terraform-su
 
 > This package is a **build-time** dependency only; each app remains independently
 > deployable. Wiring the two apps to consume it is intentionally a separate step.
+
+## Security model
+
+- **Token custody is the host app's responsibility.** `AuthProvider` is parameterised by an
+  `AuthApi` your app implements (`getCurrentUser`/`login`/`logout`/`refreshToken`/etc.) — this
+  library never reads or writes a token/cookie itself. Prefer an HttpOnly cookie over storing a
+  bearer token in `localStorage`/`sessionStorage` if your backend supports it.
+- **`onClearStorage` is how you clear YOUR app's cached auth data on logout** (e.g. a cached
+  bearer token, cached query data keyed to the signed-in user). Pass it whenever your app caches
+  anything auth-related outside of `AuthProvider`'s own React state.
+- **`hasScope`/`allowedScopes` are UI-visibility gates only — NOT an authorization boundary.**
+  They hide/show nav items and affordances client-side; every backend endpoint must
+  independently re-enforce authorization on every request regardless of what the client believes.
+  The special `ADMIN_SCOPE` (`'admin'`) wildcard mirrors the backend's own admin-wildcard
+  convention — do not rely on it as a security control in this library.
+- **`refreshSession()` logs out on failure** (a failed token refresh clears the session rather
+  than leaving a stale/ambiguous state); `authError` on the auth context exposes the raw error
+  from the most recent failed session-resolution call if your app wants to distinguish a network
+  blip from a real "not logged in" state.
+- Pass an app-specific `storageKey` to `ConsentProvider`/`SuiteThemeProvider` if your app shares an
+  origin with a sibling suite app — the default keys are generic and will collide otherwise (the
+  providers log a one-time console warning if you don't).
