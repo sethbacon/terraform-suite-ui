@@ -13,6 +13,7 @@ import { createAppTheme } from './createAppTheme'
 import { RTL_LANGUAGES } from '../tokens'
 import type { Direction, SuiteThemeContextValue, ThemeMode, UIThemeConfig } from './types'
 import { isSafeUrl } from '../utils/url'
+import { safeGetItem, safeSetItem, warnIfDefaultKey } from '../utils/storage'
 
 const ThemeContext = createContext<SuiteThemeContextValue | undefined>(undefined)
 
@@ -21,23 +22,6 @@ const DEFAULT_PRODUCT_NAME = 'Terraform Suite'
 
 function getDirection(lang: string): Direction {
   return RTL_LANGUAGES.has(lang.split('-')[0]) ? 'rtl' : 'ltr'
-}
-
-function safeGetItem(storageKey: string): string | null {
-  try {
-    return localStorage.getItem(storageKey)
-  } catch {
-    return null
-  }
-}
-
-function safeSetItem(storageKey: string, value: string): void {
-  try {
-    localStorage.setItem(storageKey, value)
-  } catch {
-    // Storage unavailable (private browsing, quota exceeded, etc.) — the in-memory
-    // theme state is still correct for this session; just skip persistence.
-  }
 }
 
 function readInitialMode(storageKey: string): ThemeMode {
@@ -82,14 +66,7 @@ export function SuiteThemeProvider({
   const [reducedMotion, setReducedMotion] = useState<boolean>(readReducedMotion)
 
   useEffect(() => {
-    if (storageKey === DEFAULT_STORAGE_KEY) {
-      // eslint-disable-next-line no-console -- one-time integration guidance
-      console.warn(
-        'SuiteThemeProvider: no storageKey prop was given, so the theme preference is persisted ' +
-        `under the generic key "${DEFAULT_STORAGE_KEY}". If this app shares an origin with a ` +
-        'sibling suite app, pass an app-specific storageKey to avoid the two apps colliding.',
-      )
-    }
+    warnIfDefaultKey('SuiteThemeProvider', storageKey, DEFAULT_STORAGE_KEY)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only
   }, [])
 
@@ -140,7 +117,10 @@ export function SuiteThemeProvider({
   useEffect(() => {
     if (!getUITheme) return undefined
     let cancelled = false
-    Promise.resolve(getUITheme())
+    // Call getUITheme() inside .then() so a SYNCHRONOUS throw from the host callback becomes a
+    // rejected promise the .catch() below handles, rather than escaping this effect uncaught.
+    Promise.resolve()
+      .then(() => getUITheme())
       .then((config) => {
         if (cancelled || !config) return
         setUiTheme(config)
