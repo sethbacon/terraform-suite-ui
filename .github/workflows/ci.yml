@@ -31,8 +31,12 @@ jobs:
       - run: npm run typecheck
 
   test:
-    name: Test
+    name: Test (${{ matrix.deps }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        deps: [latest, floor]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -42,7 +46,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
+      # Exercise the LOWEST advertised peer majors (what both consumer apps currently run) so the
+      # supported floor is actually tested — the default install/devDeps pin the latest majors.
+      - if: matrix.deps == 'floor'
+        run: npm install --no-save --legacy-peer-deps react-router-dom@^6 i18next@^24 react-i18next@^15
+      - run: npm run test:coverage
 
   build:
     name: Build

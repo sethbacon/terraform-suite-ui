@@ -9,22 +9,37 @@ export interface SuiteSwitcherProps {
   /** Tooltip / aria-label for the trigger (default 'Switch app'). */
   tooltip?: string
   /**
-   * This app's stable window name. When set (with a link's appId), the switcher
-   * claims it on the current tab before opening a sibling, so the sibling can
-   * reuse one tab instead of spawning new ones.
+   * This app's stable window name. When set (with a link's appId) for a
+   * same-origin sibling, the switcher claims it on the current tab before opening
+   * the sibling, so the sibling can reuse one tab instead of spawning new ones.
+   * Cross-origin siblings always open in a fresh `noopener` tab.
    */
   currentAppId?: string
 }
 
+/** True when href resolves to the current document's origin. */
+function isSameOrigin(href: string): boolean {
+  try {
+    return new URL(href, window.location.href).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
 /**
- * Opens a sibling suite app. When the link carries an appId, the current tab
- * first claims currentAppId, then the sibling opens under the stable window name
- * appId so repeat clicks re-navigate (and refocus) the same tab. `link.href` is
- * validated against an http(s)/mailto/tel/relative allowlist before opening (see
- * {@link isSafeUrl}) — a shared component's navigation sink is reachable from every
- * consuming app, so it is validated here as defense-in-depth even though today's
- * callers are expected to supply first-party suite URLs. `noopener,noreferrer` is
- * always passed so the opened tab cannot reach back via `window.opener`.
+ * Opens a sibling suite app. `link.href` is first validated against an
+ * http(s)/mailto/tel/relative allowlist (see {@link isSafeUrl}) — a shared component's
+ * navigation sink is reachable from every consuming app, so it is validated here as
+ * defense-in-depth even though today's callers supply first-party suite URLs.
+ *
+ * Tab handling depends on origin:
+ * - **Same-origin** sibling with an appId: the current tab claims currentAppId, then the
+ *   sibling opens under the stable window name appId so repeat clicks re-navigate (and
+ *   refocus) the same tab. `window.open` returns a live reference here, so we sever
+ *   `opener` ourselves to block reverse-tabnabbing while keeping the reference for focus.
+ * - **Cross-origin** (or un-tagged) links open with `noopener,noreferrer`. That flag makes
+ *   `window.open` return null and the custom target name is ignored, so the browser may
+ *   open a fresh tab each time — the correct, safe trade-off for a cross-origin navigation.
  */
 function openSuiteLink(link: SuiteLink, currentAppId?: string): void {
   if (!isSafeUrl(link.href)) {
@@ -32,18 +47,26 @@ function openSuiteLink(link: SuiteLink, currentAppId?: string): void {
     console.warn(`SuiteSwitcher: refusing to open unsafe link href "${link.href}"`)
     return
   }
-  if (link.appId) {
+  if (link.appId && isSameOrigin(link.href)) {
     if (currentAppId) window.name = currentAppId
-    window.open(link.href, link.appId, 'noopener,noreferrer')?.focus()
-  } else {
-    window.open(link.href, '_blank', 'noopener,noreferrer')
+    const opened = window.open(link.href, link.appId)
+    if (opened) {
+      try {
+        opened.opener = null
+      } catch {
+        // A cross-origin navigation can race the assignment; the named-tab reuse still holds.
+      }
+      opened.focus()
+    }
+    return
   }
+  window.open(link.href, '_blank', 'noopener,noreferrer')
 }
 
 /**
  * AppBar control that switches between the suite's apps. A single link renders a
  * direct-open button (the common two-app suite case); several render a menu.
- * Links carrying an appId reuse one tab per sibling (see openSuiteLink).
+ * Links carrying an appId reuse one tab per same-origin sibling (see openSuiteLink).
  */
 export function SuiteSwitcher({ links, tooltip = 'Switch app', currentAppId }: SuiteSwitcherProps) {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)

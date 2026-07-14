@@ -17,19 +17,26 @@ on:
 permissions:
   contents: read
 
+# Serialise publishes so two release/dispatch runs can't race the same version to the registry.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  # Unprivileged build/test: runs npm ci and the full dependency lifecycle in a job that holds NO
+  # publish/attestation permissions, so a poisoned transitive dependency cannot reach the registry
+  # token, mint an OIDC token, or forge attestations. Produces the exact tarball + SBOM as artifacts.
+  build:
     runs-on: ubuntu-latest
-    # Requires a required-reviewer / deployment-branch protection rule on the
-    # "release" environment (Settings > Environments) for that gate to take
-    # effect; the environment reference alone scopes secrets to this job.
-    environment: release
     permissions:
       contents: read
-      packages: write
-      id-token: write # for actions/attest-build-provenance
-      attestations: write
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
     steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
@@ -49,13 +56,19 @@ jobs:
           fi
           echo "Publishing ${PKG_VERSION} from ${GITHUB_REF} — OK"
 
-      - run: npm ci
+      # --ignore-scripts: this package's build (tsup/esbuild) and tests need no dependency install
+      # scripts, so disabling them shrinks the untrusted-code surface even in this unprivileged job.
+      - run: npm ci --ignore-scripts
 
       - run: npm run typecheck
 
       - run: npm test
 
       - run: npm run build
+
+      # Re-run the advisory audit at publish time (mirrors ci.yml) so a workflow_dispatch
+      # re-publish of an older tag can't ship without a fresh high-severity advisory check.
+      - run: npm audit --audit-level=high
 
       - name: Verify the publish tarball only contains dist + docs
         run: |
@@ -72,11 +85,73 @@ jobs:
             exit 1
           fi
 
-      - run: npm publish
+      # Pack the exact tarball once so the published bytes and the attestations below all bind to
+      # the same digest.
+      - name: Pack tarball
+        id: pack
+        run: echo "tarball=$(npm pack --silent)" >> "$GITHUB_OUTPUT"
+
+      # CycloneDX BOM of the full dependency graph. Generated here (unprivileged) and attested in
+      # the publish job. Release-asset upload is disabled so this job needs no contents: write.
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Upload publish artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publish-artifacts
+          path: |
+            ${{ steps.pack.outputs.tarball }}
+            sbom.cyclonedx.json
+          if-no-files-found: error
+          retention-days: 1
+
+  # Minimal privileged job: downloads only the vetted artifacts and publishes + attests them. It
+  # holds the registry/OIDC/attestation permissions but runs no dependency code (no npm ci/build).
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # A deployment-branch/tag policy on the "release" environment (Settings > Environments)
+    # restricts this job to v* tags; the environment reference also scopes secrets to this job.
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # for actions/attest-*
+      attestations: write
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: "@sethbacon"
+
+      - name: Download publish artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: publish-artifacts
+
+      - run: npm publish "${{ needs.build.outputs.tarball }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate build provenance attestation
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
-          subject-path: dist/**
+          subject-path: ${{ needs.build.outputs.tarball }}
+
+      - name: Attest SBOM for the published tarball
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: ${{ needs.build.outputs.tarball }}
+          sbom-path: sbom.cyclonedx.json

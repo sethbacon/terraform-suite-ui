@@ -89,6 +89,33 @@ describe('ConsentProvider', () => {
     expect(screen.getByTestId('analytics')).toHaveTextContent('true')
   })
 
+  it('coerces tampered non-boolean opt-in fields to false (strict boolean, not truthy)', () => {
+    // A string "false" is truthy in JS; a string "true" is also not a real boolean consent.
+    localStorage.setItem(
+      'test-consent',
+      JSON.stringify({ essential: true, errorReporting: 'true', analytics: 'false' }),
+    )
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <Probe />
+      </ConsentProvider>,
+    )
+    expect(screen.getByTestId('consented')).toHaveTextContent('true')
+    expect(screen.getByTestId('analytics')).toHaveTextContent('false')
+    expect(screen.getByTestId('errorReporting')).toHaveTextContent('false')
+  })
+
+  it('treats a non-object stored value (primitive/array) as no consent', () => {
+    localStorage.setItem('test-consent', JSON.stringify(['analytics']))
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <Probe />
+      </ConsentProvider>,
+    )
+    expect(screen.getByTestId('consented')).toHaveTextContent('false')
+    expect(screen.getByTestId('analytics')).toHaveTextContent('false')
+  })
+
   it('does not throw when localStorage.setItem fails (e.g. quota exceeded)', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('QuotaExceededError')
@@ -116,5 +143,15 @@ describe('ConsentProvider', () => {
     render(<NoKey />)
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('no storageKey prop was given'))
     warn.mockRestore()
+  })
+
+  it('useConsent throws when used outside a ConsentProvider', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    function Bare() {
+      useConsent()
+      return null
+    }
+    expect(() => render(<Bare />)).toThrow('useConsent must be used within a ConsentProvider')
+    spy.mockRestore()
   })
 })

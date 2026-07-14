@@ -21,7 +21,8 @@ export interface ConsentBannerProps {
 /**
  * GDPR / ePrivacy consent banner, shown as a bottom sheet until the user records
  * their cookie/telemetry preferences. Users can accept all, reject all (essential
- * only), or customize. Relies on the `consentBanner.*` i18n keys.
+ * only), or customize. Uses the `consentBanner.*` i18n keys, each with an English
+ * defaultValue fallback so an incomplete host bundle still renders readable text.
  */
 export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerProps) {
   const { t } = useTranslation()
@@ -36,7 +37,7 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
       <Paper
         elevation={8}
         role="dialog"
-        aria-label={t('consentBanner.ariaLabel')}
+        aria-label={t('consentBanner.ariaLabel', { defaultValue: 'Cookie consent' })}
         aria-describedby="consent-description"
         sx={{
           position: 'fixed',
@@ -49,7 +50,7 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
         }}
       >
         <Typography variant="h6" gutterBottom>
-          {t('consentBanner.title')}
+          {t('consentBanner.title', { defaultValue: 'Privacy preferences' })}
         </Typography>
         <Typography
           id="consent-description"
@@ -69,7 +70,7 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
           <Box sx={{ my: 2 }}>
             <FormControlLabel
               control={<Switch checked disabled />}
-              label={t('consentBanner.essential')}
+              label={t('consentBanner.essential', { defaultValue: 'Essential cookies' })}
             />
             <FormControlLabel
               control={
@@ -78,7 +79,7 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
                   onChange={(_, checked) => updatePreferences({ errorReporting: checked })}
                 />
               }
-              label={t('consentBanner.errorReporting')}
+              label={t('consentBanner.errorReporting', { defaultValue: 'Error reporting' })}
             />
             <FormControlLabel
               control={
@@ -87,7 +88,9 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
                   onChange={(_, checked) => updatePreferences({ performanceReporting: checked })}
                 />
               }
-              label={t('consentBanner.performanceMonitoring')}
+              label={t('consentBanner.performanceMonitoring', {
+                defaultValue: 'Performance monitoring',
+              })}
             />
             <FormControlLabel
               control={
@@ -96,20 +99,22 @@ export function ConsentBanner({ privacyPolicyHref = '/privacy' }: ConsentBannerP
                   onChange={(_, checked) => updatePreferences({ analytics: checked })}
                 />
               }
-              label={t('consentBanner.analytics')}
+              label={t('consentBanner.analytics', { defaultValue: 'Analytics' })}
             />
           </Box>
         )}
 
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', mt: 2 }}>
           <Button variant="text" onClick={() => setShowDetails((v) => !v)}>
-            {showDetails ? t('consentBanner.hideDetails') : t('consentBanner.customize')}
+            {showDetails
+              ? t('consentBanner.hideDetails', { defaultValue: 'Hide details' })
+              : t('consentBanner.customize', { defaultValue: 'Customize' })}
           </Button>
           <Button variant="outlined" onClick={rejectAll}>
-            {t('consentBanner.rejectAll')}
+            {t('consentBanner.rejectAll', { defaultValue: 'Reject all' })}
           </Button>
           <Button variant="contained" onClick={acceptAll}>
-            {t('consentBanner.acceptAll')}
+            {t('consentBanner.acceptAll', { defaultValue: 'Accept all' })}
           </Button>
         </Stack>
       </Paper>

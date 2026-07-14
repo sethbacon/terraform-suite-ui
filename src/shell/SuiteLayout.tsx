@@ -37,6 +37,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import CheckIcon from '@mui/icons-material/Check'
 import { useAuth, SessionExpiryWarning } from '../identity'
 import { useThemeMode } from '../theme'
+import { safeGetItem, safeSetItem } from '../utils/storage'
 import type { NavGroup, NavItem } from './types'
 
 const DRAWER_WIDTH = 240
@@ -132,11 +133,13 @@ export function SuiteLayout({
   const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     if (!groupStateStorageKey) return {}
-    try {
-      const stored = localStorage.getItem(groupStateStorageKey)
-      if (stored) return JSON.parse(stored) as Record<string, boolean>
-    } catch {
-      // ignore malformed storage
+    const stored = safeGetItem(groupStateStorageKey)
+    if (stored) {
+      try {
+        return JSON.parse(stored) as Record<string, boolean>
+      } catch {
+        // ignore malformed storage
+      }
     }
     // Default every group to open when persistence is enabled.
     return Object.fromEntries(navGroups.map((g) => [g.key, true]))
@@ -147,7 +150,7 @@ export function SuiteLayout({
       navGroups
         .map((g) => ({
           ...g,
-          items: g.items.filter((it) => it.scope === null || hasScope(it.scope)),
+          items: (g.items ?? []).filter((it) => it.scope === null || hasScope(it.scope)),
         }))
         .filter((g) => g.items.length > 0),
     [navGroups, hasScope],
@@ -168,11 +171,7 @@ export function SuiteLayout({
       const current = prev[key] ?? (groupStateStorageKey ? true : key === activeGroupKey)
       const next = { ...prev, [key]: !current }
       if (groupStateStorageKey) {
-        try {
-          localStorage.setItem(groupStateStorageKey, JSON.stringify(next))
-        } catch {
-          /* ignore storage write failures */
-        }
+        safeSetItem(groupStateStorageKey, JSON.stringify(next))
       }
       return next
     })
@@ -223,7 +222,7 @@ export function SuiteLayout({
     <Box>
       <Toolbar />
       <List component="ul">
-        {renderItem(homeItem)}
+        {homeItem ? renderItem(homeItem) : null}
         {primaryNavItems.map(renderItem)}
       </List>
       {visibleGroups.map((group) => (

@@ -42,11 +42,11 @@
     "@emotion/styled": "^11.0.0",
     "@mui/icons-material": "^9.0.0",
     "@mui/material": "^9.0.0",
-    "i18next": "^24.0.0",
+    "i18next": "^24.0.0 || ^26.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-i18next": "^15.0.0",
-    "react-router-dom": "^6.0.0"
+    "react-i18next": "^15.0.0 || ^17.0.0",
+    "react-router-dom": "^6.0.0 || ^7.0.0"
   },
   "overrides": {
     "esbuild": "^0.28.1"
