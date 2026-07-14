@@ -144,4 +144,14 @@ describe('ConsentProvider', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('no storageKey prop was given'))
     warn.mockRestore()
   })
+
+  it('useConsent throws when used outside a ConsentProvider', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    function Bare() {
+      useConsent()
+      return null
+    }
+    expect(() => render(<Bare />)).toThrow('useConsent must be used within a ConsentProvider')
+    spy.mockRestore()
+  })
 })

@@ -86,4 +86,21 @@ describe('SuiteSwitcher', () => {
     expect(open).not.toHaveBeenCalled()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('unsafe link href'))
   })
+
+  it('in the multi-link menu, refuses an unsafe link (warns, does not open)', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    render(
+      <SuiteSwitcher
+        links={[
+          { label: 'Evil', href: 'javascript:alert(1)', appId: 'evil' },
+          { label: 'Docs', href: 'https://docs.example' },
+        ]}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Switch app' }))
+    fireEvent.click(screen.getByText('Evil'))
+    expect(open).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('unsafe link href'))
+  })
 })

@@ -299,5 +299,15 @@ describe('AuthProvider', () => {
     })
     expect(screen.getByTestId('auth')).toHaveTextContent('false')
   })
+
+  it('useAuth throws when used outside an AuthProvider', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    function Bare() {
+      useAuth()
+      return null
+    }
+    expect(() => render(<Bare />)).toThrow('useAuth must be used within an AuthProvider')
+    spy.mockRestore()
+  })
 })
 
