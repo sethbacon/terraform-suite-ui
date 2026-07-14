@@ -57,7 +57,7 @@ describe('SessionExpiryWarning', () => {
     await waitFor(() => expect(screen.getByTestId('session-expiry-warning')).toBeInTheDocument())
 
     await act(async () => {
-      screen.getByText('session.refresh').click()
+      screen.getByText('Refresh session').click()
     })
     expect(api.refreshToken).toHaveBeenCalled()
   })
@@ -76,7 +76,7 @@ describe('SessionExpiryWarning', () => {
     )
     await waitFor(() => expect(screen.getByTestId('session-expiry-warning')).toBeInTheDocument())
 
-    act(() => screen.getByText('auth.signOut').click())
+    act(() => screen.getByText('Sign out').click())
     expect(api.logout).toHaveBeenCalled()
   })
 })

@@ -42,7 +42,12 @@ export interface AuthProviderProps {
   children: ReactNode
   /** App-specific backend contract that drives authentication. */
   api: AuthApi
-  /** Clears any app-specific cached auth storage during logout. */
+  /**
+   * Clears any app-specific cached auth storage when the session ends. Called on explicit
+   * logout AND when the session fails closed (a rejected/401 `getCurrentUser()`, a lapsed
+   * session, or a malformed response) — i.e. on every transition to unauthenticated, so
+   * host-cached data does not outlive the logged-out UI.
+   */
   onClearStorage?: () => void
 }
 
@@ -66,30 +71,66 @@ export function AuthProvider({ children, api, onClearStorage }: AuthProviderProp
   const [sessionExpiresSoon, setSessionExpiresSoon] = useState(false)
   const [authError, setAuthError] = useState<unknown>(null)
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Monotonic token bumped on logout and unmount. Any in-flight loadUser()/refreshSession()
+  // captures the current value and discards its result if the token has since moved on — so a
+  // late getCurrentUser()/refreshToken() cannot resurrect a session the user already ended.
+  const generation = useRef(0)
+  const mounted = useRef(true)
+  const refreshing = useRef(false)
 
-  const scheduleSessionWarning = useCallback((expiresAt: Date) => {
-    if (warnTimer.current) clearTimeout(warnTimer.current)
-    setSessionExpiresAt(expiresAt)
-    setSessionExpiresSoon(false)
-    const delay = expiresAt.getTime() - Date.now() - SESSION_WARNING_LEAD_MS
-    if (delay > MAX_TIMEOUT_MS) {
-      // Too far out to schedule directly (setTimeout delays > 2^31-1ms overflow and fire
-      // immediately). Re-check closer to expiry instead of silently never warning.
-      warnTimer.current = setTimeout(() => scheduleSessionWarning(expiresAt), MAX_TIMEOUT_MS)
-      return
+  const clearWarnTimer = useCallback(() => {
+    if (warnTimer.current) {
+      clearTimeout(warnTimer.current)
+      warnTimer.current = null
     }
-    if (delay <= 0) {
-      setSessionExpiresSoon(true)
-      return
-    }
-    warnTimer.current = setTimeout(() => setSessionExpiresSoon(true), delay)
   }, [])
+
+  const scheduleSessionWarning = useCallback(
+    (expiresAt: Date) => {
+      clearWarnTimer()
+      const time = expiresAt.getTime()
+      if (!Number.isFinite(time)) {
+        // Malformed/unparseable expiry — don't schedule (setTimeout(fn, NaN) coerces to 0ms and
+        // would fire the warning immediately). Leave the session un-warned instead.
+        setSessionExpiresAt(null)
+        setSessionExpiresSoon(false)
+        return
+      }
+      setSessionExpiresAt(expiresAt)
+      setSessionExpiresSoon(false)
+      const delay = time - Date.now() - SESSION_WARNING_LEAD_MS
+      if (delay > MAX_TIMEOUT_MS) {
+        // Too far out to schedule directly (setTimeout delays > 2^31-1ms overflow and fire
+        // immediately). Re-check closer to expiry instead of silently never warning.
+        warnTimer.current = setTimeout(() => scheduleSessionWarning(expiresAt), MAX_TIMEOUT_MS)
+        return
+      }
+      if (delay <= 0) {
+        setSessionExpiresSoon(true)
+        return
+      }
+      warnTimer.current = setTimeout(() => setSessionExpiresSoon(true), delay)
+    },
+    [clearWarnTimer],
+  )
+
+  // Reset all session state to unauthenticated. Does NOT call onClearStorage — callers decide.
+  const resetSessionState = useCallback(() => {
+    clearWarnTimer()
+    setUser(null)
+    setRoleTemplate(null)
+    setAllowedScopes([])
+    setSessionExpiresAt(null)
+    setSessionExpiresSoon(false)
+  }, [clearWarnTimer])
 
   useEffect(
     () => () => {
-      if (warnTimer.current) clearTimeout(warnTimer.current)
+      mounted.current = false
+      generation.current++
+      clearWarnTimer()
     },
-    [],
+    [clearWarnTimer],
   )
 
   const applyMe = useCallback(
@@ -106,31 +147,53 @@ export function AuthProvider({ children, api, onClearStorage }: AuthProviderProp
           }
           : null,
       )
-      if (me.session_expires_at) scheduleSessionWarning(new Date(me.session_expires_at))
+      if (me.session_expires_at) {
+        scheduleSessionWarning(new Date(me.session_expires_at))
+      } else {
+        // A later /me that omits the expiry must clear any prior schedule/warning rather than
+        // leaving a stale "session expiring soon" banner armed.
+        clearWarnTimer()
+        setSessionExpiresAt(null)
+        setSessionExpiresSoon(false)
+      }
     },
-    [scheduleSessionWarning],
+    [scheduleSessionWarning, clearWarnTimer],
   )
 
   const loadUser = useCallback(async () => {
+    const gen = ++generation.current
     try {
-      applyMe(await apiRef.current.getCurrentUser())
+      const me = await apiRef.current.getCurrentUser()
+      // Discard if a logout / unmount / newer load happened while this request was in flight.
+      if (gen !== generation.current || !mounted.current) return
+      if (!me || me.user == null) {
+        // Resolved but malformed (missing user) — fail closed rather than flipping
+        // isAuthenticated true with an undefined user.
+        resetSessionState()
+        onClearStorageRef.current?.()
+        setAuthError(new Error('Malformed session response: missing user'))
+        return
+      }
+      applyMe(me)
       setAuthError(null)
     } catch (err) {
+      if (gen !== generation.current || !mounted.current) return
       // Fail closed regardless of WHY getCurrentUser() rejected (real 401 vs a transient
       // network/backend error) — an authenticated-looking UI must never linger on a stale
-      // session. authError is exposed so a host CAN distinguish the two cases (e.g. show a
-      // "connection problem, try again" banner instead of bouncing straight to the login page).
-      setUser(null)
-      setRoleTemplate(null)
-      setAllowedScopes([])
-      setSessionExpiresAt(null)
+      // session. Clear host-cached auth storage on this path too (not only on explicit logout),
+      // so a lapsed/expired session does not leave stale app data behind. authError is exposed
+      // so a host CAN still distinguish the two cases.
+      resetSessionState()
+      onClearStorageRef.current?.()
       setAuthError(err)
     }
-  }, [applyMe])
+  }, [applyMe, resetSessionState])
 
   // On mount, resolve the session from the backend.
   useEffect(() => {
-    loadUser().finally(() => setIsLoading(false))
+    loadUser().finally(() => {
+      if (mounted.current) setIsLoading(false)
+    })
   }, [loadUser])
 
   const login = useCallback((provider = 'oidc') => {
@@ -151,28 +214,35 @@ export function AuthProvider({ children, api, onClearStorage }: AuthProviderProp
   )
 
   const logout = useCallback(() => {
-    if (warnTimer.current) clearTimeout(warnTimer.current)
-    setSessionExpiresSoon(false)
-    setSessionExpiresAt(null)
-    setUser(null)
-    setRoleTemplate(null)
-    setAllowedScopes([])
-    onClearStorageRef.current?.()
+    generation.current++ // invalidate any in-flight loadUser() / refreshSession()
+    resetSessionState()
+    // Call the host logout BEFORE clearing app storage: a bearer-style host may need the token
+    // (which onClearStorage clears) to authenticate its server-side revocation call. Guard both
+    // a synchronous throw and a rejected promise from a misbehaving host implementation so the
+    // event handler that triggered logout never sees an uncaught error.
     try {
-      apiRef.current.logout()
+      Promise.resolve(apiRef.current.logout()).catch(() => { })
     } catch {
-      // A throwing/rejecting host logout() must not leave an uncaught exception in whatever
-      // event handler triggered logout (e.g. SessionExpiryWarning's sign-out button) — local
-      // state above is already cleared, so the user-visible outcome is correct either way.
+      // synchronous throw — local state is already cleared, so logout still "succeeds".
     }
-  }, [])
+    onClearStorageRef.current?.()
+  }, [resetSessionState])
 
   const refreshSession = useCallback(async () => {
+    // Coalesce concurrent refreshes so rapid callers don't fire multiple token rotations.
+    if (refreshing.current) return
+    refreshing.current = true
+    const gen = generation.current
     try {
       const { expires_in } = await apiRef.current.refreshToken()
-      scheduleSessionWarning(new Date(Date.now() + expires_in * 1000))
+      // Skip rescheduling if a logout / unmount happened during the refresh.
+      if (gen === generation.current && mounted.current) {
+        scheduleSessionWarning(new Date(Date.now() + expires_in * 1000))
+      }
     } catch {
       logout()
+    } finally {
+      refreshing.current = false
     }
   }, [scheduleSessionWarning, logout])
 

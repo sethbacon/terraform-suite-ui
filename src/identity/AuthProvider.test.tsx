@@ -240,5 +240,64 @@ describe('AuthProvider', () => {
     // devLogin() rejected before loadUser() ran again — still unauthenticated, no partial state.
     expect(screen.getByTestId('auth')).toHaveTextContent('false')
   })
+
+  it('ldapLogin authenticates with the given credentials then resolves the session via /me', async () => {
+    function LdapProbe() {
+      const { ldapLogin, isAuthenticated } = useAuth()
+      return (
+        <div>
+          <span data-testid="auth">{String(isAuthenticated)}</span>
+          <button onClick={() => void ldapLogin('ada', 's3cret')}>ldap-login</button>
+        </div>
+      )
+    }
+    const me: MeResponse = {
+      user: { id: '1', email: 'a@b.com', name: 'Ada' },
+      memberships: [],
+      allowed_scopes: ['state:read'],
+    }
+    // No session on mount; a valid session only after ldapLogin establishes one.
+    const getCurrentUser = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('401'))
+      .mockResolvedValue(me)
+    const api: AuthApi = { ...makeApi(me), getCurrentUser }
+    render(
+      <AuthProvider api={api}>
+        <LdapProbe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('auth')).toHaveTextContent('false'))
+    await act(async () => screen.getByText('ldap-login').click())
+    expect(api.ldapLogin).toHaveBeenCalledWith('ada', 's3cret')
+    await waitFor(() => expect(screen.getByTestId('auth')).toHaveTextContent('true'))
+  })
+
+  it('logout() wins a race against an in-flight session load (the stale /me is discarded)', async () => {
+    const me: MeResponse = {
+      user: { id: '1', email: 'a@b.com', name: 'Ada' },
+      memberships: [],
+      allowed_scopes: ['state:read'],
+    }
+    // Hold the mount-time getCurrentUser() pending so we can log out mid-flight.
+    let resolveMe!: (value: MeResponse) => void
+    const getCurrentUser = vi.fn().mockImplementation(
+      () => new Promise<MeResponse>((resolve) => { resolveMe = resolve }),
+    )
+    const api: AuthApi = { ...makeApi(me), getCurrentUser }
+    render(
+      <AuthProvider api={api}>
+        <Probe />
+      </AuthProvider>,
+    )
+    // Log out while the initial load is still pending (bumps the generation counter).
+    await act(async () => screen.getByText('logout').click())
+    // Now let the in-flight /me resolve with a valid session — it must be discarded, not applied.
+    await act(async () => {
+      resolveMe(me)
+      await Promise.resolve()
+    })
+    expect(screen.getByTestId('auth')).toHaveTextContent('false')
+  })
 })
 
