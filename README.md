@@ -10,9 +10,9 @@ visual and behavioural parity from a single source of truth.
 
 | Area           | Exports                                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **Tokens**     | `BRAND_PRIMARY`, `SECONDARY_LIGHT`, `SECONDARY_DARK`, dark surfaces, font stack, `BORDER_RADIUS`                             |
+| **Tokens**     | `BRAND_PRIMARY`, `SECONDARY_LIGHT`, `SECONDARY_DARK`, dark surfaces, font stack, `BORDER_RADIUS`, `RTL_LANGUAGES`            |
 | **Theme**      | `createAppTheme(mode, prefersReducedMotion, direction, overrides)`, `SuiteThemeProvider`, `useThemeMode`                     |
-| **Identity**   | `AuthProvider` (parameterised by an `AuthApi`), `useAuth` (returns `hasScope`), `ADMIN_SCOPE`, `SessionExpiryWarning`, types |
+| **Identity**   | `AuthProvider` (parameterised by an `AuthApi`), `useAuth` (returns `hasScope`), `ADMIN_SCOPE`, `SESSION_WARNING_LEAD_MS`, `SessionExpiryWarning`, types |
 | **Consent**    | `ConsentProvider`, `useConsent`, `ConsentBanner`                                                                             |
 | **Components** | `PageHeader`, `DashboardCard`, `Page`                                                                                        |
 | **Shell**      | `SuiteLayout` (parameterised by nav + branding + auth), `SuiteSwitcher`, nav types                                           |
@@ -47,11 +47,13 @@ using the repo's `GITHUB_TOKEN`.
   tracked in git), so independent-review protection is not guaranteed by this repository alone.
 - Before `npm publish`, CI asserts the tarball (`npm pack --dry-run`) only contains `dist/` plus
   `package.json`/`README.md`/`LICENSE`/`NOTICE` — no source, tests, or config files ship.
-- Every release generates a [GitHub Artifact Attestation](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
-  for the built `dist/` output, which you can verify against a downloaded/installed package with:
+- Every release generates [GitHub Artifact Attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
+  — build provenance plus a CycloneDX SBOM — bound to the exact published npm tarball. Verify by
+  fetching the tarball and checking it:
 
   ```bash
-  gh attestation verify --repo sethbacon/terraform-suite-ui node_modules/@sethbacon/terraform-suite-ui/dist/index.js
+  npm pack @sethbacon/terraform-suite-ui
+  gh attestation verify --repo sethbacon/terraform-suite-ui ./sethbacon-terraform-suite-ui-*.tgz
   ```
 
 - CI runs `npm audit --audit-level=high` on every push/PR, and CodeQL (`javascript-typescript`)
@@ -90,9 +92,10 @@ import { SuiteThemeProvider, PageHeader, useAuth } from '@sethbacon/terraform-su
   `AuthApi` your app implements (`getCurrentUser`/`login`/`logout`/`refreshToken`/etc.) — this
   library never reads or writes a token/cookie itself. Prefer an HttpOnly cookie over storing a
   bearer token in `localStorage`/`sessionStorage` if your backend supports it.
-- **`onClearStorage` is how you clear YOUR app's cached auth data on logout** (e.g. a cached
-  bearer token, cached query data keyed to the signed-in user). Pass it whenever your app caches
-  anything auth-related outside of `AuthProvider`'s own React state.
+- **`onClearStorage` is how you clear YOUR app's cached auth data when the session ends** — on
+  explicit logout AND when the session fails closed (a 401, a lapsed session, or a malformed
+  `/me` response). Pass it whenever your app caches anything auth-related (a bearer token, query
+  data keyed to the signed-in user) outside of `AuthProvider`'s own React state.
 - **`hasScope`/`allowedScopes` are UI-visibility gates only — NOT an authorization boundary.**
   They hide/show nav items and affordances client-side; every backend endpoint must
   independently re-enforce authorization on every request regardless of what the client believes.
@@ -105,3 +108,7 @@ import { SuiteThemeProvider, PageHeader, useAuth } from '@sethbacon/terraform-su
 - Pass an app-specific `storageKey` to `ConsentProvider`/`SuiteThemeProvider` if your app shares an
   origin with a sibling suite app — the default keys are generic and will collide otherwise (the
   providers log a one-time console warning if you don't).
+- **`isSafeUrl` is the URL guard the shared components apply to host-supplied URLs** before using
+  them for navigation (`SuiteSwitcher`) or image sinks (`SuiteLayout`/`SuiteThemeProvider`
+  branding). It is exported so your app can apply the same allowlist (http/https/mailto/tel and
+  relative paths only) to any backend- or user-influenced URL at its own boundary.
