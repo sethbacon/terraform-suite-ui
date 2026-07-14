@@ -16,8 +16,9 @@ visual and behavioural parity from a single source of truth.
 | **Consent**    | `ConsentProvider`, `useConsent`, `ConsentBanner`                                                                             |
 | **Components** | `PageHeader`, `DashboardCard`, `Page`                                                                                        |
 | **Shell**      | `SuiteLayout` (parameterised by nav + branding + auth), `SuiteSwitcher`, nav types                                           |
+| **Utils**      | `isSafeUrl` (host-supplied URL guard for navigation / image sinks)                                                           |
 
-Framework packages (React, MUI, Emotion, i18next, react-router, react-query) are
+Framework packages (React, MUI, Emotion, i18next, react-router) are
 **peer dependencies** — the consuming app provides a single copy at runtime.
 
 ## Develop
@@ -38,9 +39,12 @@ using the repo's `GITHUB_TOKEN`.
 
 **Integrity guarantees for consumers:**
 
-- The publish job runs behind a GitHub Environment (`release`) and refuses to publish unless the
-  triggering ref is exactly the git tag matching `package.json`'s version — a manual
-  `workflow_dispatch` run against an arbitrary branch is rejected, not just discouraged.
+- The publish job refuses to publish unless the triggering ref is exactly the git tag matching
+  `package.json`'s version — a manual `workflow_dispatch` run against an arbitrary branch is
+  rejected, not just discouraged. This tag/version check is the guarantee enforced by code in
+  this repository. The job also targets a GitHub Environment (`release`); any human-review gate
+  on that environment must be configured as a required-reviewer rule in repo **Settings** (not
+  tracked in git), so independent-review protection is not guaranteed by this repository alone.
 - Before `npm publish`, CI asserts the tarball (`npm pack --dry-run`) only contains `dist/` plus
   `package.json`/`README.md`/`LICENSE`/`NOTICE` — no source, tests, or config files ship.
 - Every release generates a [GitHub Artifact Attestation](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
