@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { safeGetItem, safeSetItem, warnIfDefaultKey } from '../utils/storage'
 
 export interface ConsentPreferences {
   /** Essential cookies — always true, cannot be disabled. */
@@ -30,15 +31,32 @@ const defaultPreferences: ConsentPreferences = {
 
 const ConsentContext = createContext<ConsentContextType | undefined>(undefined)
 
+// Strictly coerce a parsed (and therefore untrusted) preferences object: each opt-in field must be
+// the boolean literal `true` to count as consent. A tampered/legacy value — a string "false"/"true",
+// a number, anything non-boolean — collapses to `false` (opt-out), so it can never round-trip truthy
+// into a GDPR consent gate. essential is always true.
+function sanitizePreferences(parsed: Record<string, unknown>): ConsentPreferences {
+  return {
+    essential: true,
+    errorReporting: parsed.errorReporting === true,
+    performanceReporting: parsed.performanceReporting === true,
+    analytics: parsed.analytics === true,
+  }
+}
+
 function loadPreferences(storageKey: string): { prefs: ConsentPreferences; consented: boolean } {
-  try {
-    const stored = localStorage.getItem(storageKey)
-    if (stored) {
-      const parsed = JSON.parse(stored) as ConsentPreferences
-      return { prefs: { ...defaultPreferences, ...parsed, essential: true }, consented: true }
+  const stored = safeGetItem(storageKey)
+  if (stored) {
+    try {
+      const parsed: unknown = JSON.parse(stored)
+      // Only a plain object is a valid stored consent record; a primitive or array is treated as
+      // no consent so the banner reappears rather than silently applying a malformed value.
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return { prefs: sanitizePreferences(parsed as Record<string, unknown>), consented: true }
+      }
+    } catch {
+      // Corrupted JSON — treat as no consent.
     }
-  } catch {
-    // Corrupted storage — treat as no consent.
   }
   return { prefs: defaultPreferences, consented: false }
 }
@@ -53,25 +71,13 @@ export function ConsentProvider({ children, storageKey = DEFAULT_CONSENT_KEY }: 
   const [{ prefs, consented }, setState] = useState(() => loadPreferences(storageKey))
 
   useEffect(() => {
-    if (storageKey === DEFAULT_CONSENT_KEY) {
-      // eslint-disable-next-line no-console -- one-time integration guidance
-      console.warn(
-        'ConsentProvider: no storageKey prop was given, so consent preferences are persisted under ' +
-        `the generic key "${DEFAULT_CONSENT_KEY}". If this app shares an origin with a sibling ` +
-        'suite app, pass an app-specific storageKey to avoid the two apps colliding.',
-      )
-    }
+    warnIfDefaultKey('ConsentProvider', storageKey, DEFAULT_CONSENT_KEY)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only
   }, [])
 
   useEffect(() => {
     if (!consented) return
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(prefs))
-    } catch {
-      // Storage unavailable (private browsing, quota exceeded, etc.) — the in-memory
-      // preference state above is still correct for this session; just skip persistence.
-    }
+    safeSetItem(storageKey, JSON.stringify(prefs))
   }, [prefs, consented, storageKey])
 
   const updatePreferences = useCallback(
