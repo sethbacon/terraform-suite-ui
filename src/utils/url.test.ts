@@ -24,11 +24,25 @@ describe('isSafeUrl', () => {
     '//evil.com',
     '/\\evil.com',
     '\\\\evil.com',
+    // Embedded tab/newline/CR: the WHATWG URL parser strips these before parsing, so each of
+    // these would be normalized to the protocol-relative "//evil.com" (off-origin redirect) at
+    // the sink. They must be rejected here despite looking like a leading-'/' relative path.
+    '/\t/evil.com',
+    '/\n/evil.com',
+    '/\r/evil.com',
+    '/safe\t//evil.com',
     '',
     '   ',
     null,
     undefined,
   ])('rejects %s', (value) => {
     expect(isSafeUrl(value as string | null | undefined)).toBe(false)
+  })
+
+  it('does not throw and returns false for truthy non-string inputs', () => {
+    expect(isSafeUrl(123 as unknown as string)).toBe(false)
+    expect(isSafeUrl({} as unknown as string)).toBe(false)
+    expect(isSafeUrl([] as unknown as string)).toBe(false)
+    expect(isSafeUrl(true as unknown as string)).toBe(false)
   })
 })

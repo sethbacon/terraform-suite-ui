@@ -11,9 +11,17 @@
  * not assume that will always remain true.
  */
 export function isSafeUrl(value: string | null | undefined): value is string {
-  if (!value) return false
+  if (!value || typeof value !== 'string') return false
   const trimmed = value.trim()
   if (trimmed === '') return false
+
+  // Reject any embedded ASCII control character (C0 range + DEL). Critically, the WHATWG URL
+  // parser STRIPS embedded tab/newline (U+0009/U+000A/U+000D) from a URL before parsing, so a
+  // value like "/\t/evil.com" — which the relative-path fast-path below would treat as a safe
+  // path — is silently normalized by the browser to the protocol-relative "//evil.com" (an
+  // off-origin redirect) at the sink. Rejecting control characters here closes that
+  // normalization gap for the relative-path fast-path (and hardens the absolute-URL path too).
+  if (/[\u0000-\u001F\u007F]/.test(trimmed)) return false
 
   // Protocol-relative ("//evil.com") and its backslash variants ("/\evil.com", "\\evil.com")
   // — browsers may treat a leading backslash as a slash, an ambiguous-scheme trick used to
