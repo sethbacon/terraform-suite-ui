@@ -57,6 +57,10 @@ jobs:
 
       - run: npm run build
 
+      # Re-run the advisory audit at publish time (mirrors ci.yml) so a workflow_dispatch
+      # re-publish of an older tag can't ship without a fresh high-severity advisory check.
+      - run: npm audit --audit-level=high
+
       - name: Verify the publish tarball only contains dist + docs
         run: |
           npm pack --dry-run --json > /tmp/pack.json
@@ -72,11 +76,32 @@ jobs:
             exit 1
           fi
 
-      - run: npm publish
+      # Pack the exact tarball we publish so the provenance attestation below binds to the
+      # published bytes (the tarball digest), not just the on-disk dist/ tree.
+      - name: Pack tarball
+        id: pack
+        run: echo "tarball=$(npm pack --silent)" >> "$GITHUB_OUTPUT"
+
+      - run: npm publish "${{ steps.pack.outputs.tarball }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate build provenance attestation
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
-          subject-path: dist/**
+          subject-path: ${{ steps.pack.outputs.tarball }}
+
+      # Machine-readable BOM (CycloneDX) of the full dependency graph, attested and bound to the
+      # published tarball so consumers can triage CVEs against an exact, verifiable component list.
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Attest SBOM for the published tarball
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: ${{ steps.pack.outputs.tarball }}
+          sbom-path: sbom.cyclonedx.json
