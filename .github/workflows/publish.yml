@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+# Serialise publishes so two release/dispatch runs can't race the same version to the registry.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # Unprivileged build/test: runs npm ci and the full dependency lifecycle in a job that holds NO
   # publish/attestation permissions, so a poisoned transitive dependency cannot reach the registry
