@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.4](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.3...v0.5.4) (2026-07-14)
+
+
+### Bug Fixes
+
+* **ci:** correct dependabot schedule interval from biweekly to weekly ([#44](https://github.com/sethbacon/terraform-suite-ui/issues/44)) ([0742715](https://github.com/sethbacon/terraform-suite-ui/commit/0742715bcc97ecb016b854f1ce08578c3ecc9ba2))
+* **ci:** ignore major TypeScript bumps in dependabot config ([#47](https://github.com/sethbacon/terraform-suite-ui/issues/47)) ([0e28a60](https://github.com/sethbacon/terraform-suite-ui/commit/0e28a6038799687dd7e8740a04b86bb7fb7c230e))
+
 ## [0.5.3](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.2...v0.5.3) (2026-07-11)
 
 
