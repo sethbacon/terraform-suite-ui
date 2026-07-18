@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.6.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.4...v0.6.0) (2026-07-18)
+
+
+### Features
+
+* **components:** add NotificationChannelsSection and ApiKeyExpirySettingsCard ([9692107](https://github.com/sethbacon/terraform-suite-ui/commit/96921073cf470ed6abb992cb06e371fc275e32b1))
+
 ## [0.5.4](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.3...v0.5.4) (2026-07-14)
 
 
