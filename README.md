@@ -14,7 +14,7 @@ visual and behavioural parity from a single source of truth.
 | **Theme**      | `createAppTheme(mode, prefersReducedMotion, direction, overrides)`, `SuiteThemeProvider`, `useThemeMode`                     |
 | **Identity**   | `AuthProvider` (parameterised by an `AuthApi`), `useAuth` (returns `hasScope`), `ADMIN_SCOPE`, `SESSION_WARNING_LEAD_MS`, `SessionExpiryWarning`, types |
 | **Consent**    | `ConsentProvider`, `useConsent`, `ConsentBanner`                                                                             |
-| **Components** | `PageHeader`, `DashboardCard`, `Page`                                                                                        |
+| **Components** | `PageHeader`, `DashboardCard`, `Page`, `NotificationChannelsSection`, `ApiKeyExpirySettingsCard`                             |
 | **Shell**      | `SuiteLayout` (parameterised by nav + branding + auth), `SuiteSwitcher`, nav types                                           |
 | **Utils**      | `isSafeUrl` (host-supplied URL guard for navigation / image sinks)                                                           |
 
