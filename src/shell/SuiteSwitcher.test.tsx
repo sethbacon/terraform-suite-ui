@@ -17,7 +17,7 @@ describe('SuiteSwitcher', () => {
 
   it('reuses one tab for a SAME-origin sibling: claims the tab, opens by name (no noopener), severs opener, focuses', () => {
     const focus = vi.fn()
-    const opened = { focus, opener: {} } as unknown as Window
+    const opened = { focus, opener: {}, closed: false } as unknown as Window
     const open = vi.spyOn(window, 'open').mockReturnValue(opened)
     const href = sameOrigin('/state-manager')
     render(
@@ -33,11 +33,19 @@ describe('SuiteSwitcher', () => {
     // Named target, and crucially NO 'noopener' (which would null the returned reference).
     expect(open).toHaveBeenCalledWith(href, 'terraform-state-manager')
     expect(opened.opener).toBeNull()
-    expect(focus).toHaveBeenCalled()
+    expect(focus).toHaveBeenCalledTimes(1)
+
+    // Clicking again while the tab is still open just refocuses it — no re-navigation,
+    // so whatever page/state the user left it on is preserved.
+    fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(focus).toHaveBeenCalledTimes(2)
   })
 
-  it('opens a CROSS-origin sibling in a fresh noopener tab and does not reuse or claim the current tab', () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  it('reuses one tab for a CROSS-origin sibling too: opens by name (no noopener), severs opener, focuses', () => {
+    const focus = vi.fn()
+    const opened = { focus, opener: {}, closed: false } as unknown as Window
+    const open = vi.spyOn(window, 'open').mockReturnValue(opened)
     render(
       <SuiteSwitcher
         links={[{ label: 'State Manager', href: 'https://sm.example', appId: 'terraform-state-manager' }]}
@@ -46,12 +54,39 @@ describe('SuiteSwitcher', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
+    // Cross-origin: the current tab's name is NOT claimed (that's only for the same-origin
+    // reciprocal case), but the sibling itself still reuses one tab, same as same-origin.
     expect(window.name).toBe('')
-    expect(open).toHaveBeenCalledWith('https://sm.example', '_blank', 'noopener,noreferrer')
+    expect(open).toHaveBeenCalledWith('https://sm.example', 'terraform-state-manager')
+    expect(opened.opener).toBeNull()
+    expect(focus).toHaveBeenCalledTimes(1)
+
+    // Repeat clicks reuse — this is the fix for tabs piling up on cross-origin siblings.
+    fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(focus).toHaveBeenCalledTimes(2)
   })
 
-  it('opens a menu when given several links (cross-origin siblings use noopener new tabs)', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  it('opens a fresh tab again once the previously-opened sibling tab has been closed', () => {
+    const opened = { focus: vi.fn(), opener: {}, closed: false } as unknown as Window
+    const open = vi.spyOn(window, 'open').mockReturnValue(opened)
+    render(
+      <SuiteSwitcher
+        links={[{ label: 'State Manager', href: 'https://sm.example', appId: 'terraform-state-manager' }]}
+        tooltip="Open State Manager"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
+    expect(open).toHaveBeenCalledTimes(1)
+
+    opened.closed = true
+    fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
+    expect(open).toHaveBeenCalledTimes(2)
+  })
+
+  it('opens a menu when given several links and reuses each sibling by appId (no noopener)', async () => {
+    const opened = { focus: vi.fn(), opener: {}, closed: false } as unknown as Window
+    const open = vi.spyOn(window, 'open').mockReturnValue(opened)
     render(
       <SuiteSwitcher
         links={[
@@ -63,7 +98,7 @@ describe('SuiteSwitcher', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Switch app' }))
     fireEvent.click(await screen.findByText('State Manager'))
-    expect(open).toHaveBeenCalledWith('https://sm.example', '_blank', 'noopener,noreferrer')
+    expect(open).toHaveBeenCalledWith('https://sm.example', 'terraform-state-manager')
   })
 
   it('falls back to a plain new tab when a link has no appId', () => {

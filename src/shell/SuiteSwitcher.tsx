@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { IconButton, ListItemText, Menu, MenuItem, Tooltip } from '@mui/material'
 import AppsIcon from '@mui/icons-material/Apps'
 import type { SuiteLink } from './types'
@@ -9,10 +9,10 @@ export interface SuiteSwitcherProps {
   /** Tooltip / aria-label for the trigger (default 'Switch app'). */
   tooltip?: string
   /**
-   * This app's stable window name. When set (with a link's appId) for a
-   * same-origin sibling, the switcher claims it on the current tab before opening
-   * the sibling, so the sibling can reuse one tab instead of spawning new ones.
-   * Cross-origin siblings always open in a fresh `noopener` tab.
+   * This app's stable window name. When set (with a link's appId) for a same-origin
+   * sibling, the switcher claims it on the current tab before opening the sibling, so the
+   * sibling can reuse one tab for the reciprocal (sibling-opens-us) case too. Tab reuse for
+   * the link being opened itself works regardless of origin — see {@link openSuiteLink}.
    */
   currentAppId?: string
 }
@@ -32,44 +32,68 @@ function isSameOrigin(href: string): boolean {
  * navigation sink is reachable from every consuming app, so it is validated here as
  * defense-in-depth even though today's callers supply first-party suite URLs.
  *
- * Tab handling depends on origin:
- * - **Same-origin** sibling with an appId: the current tab claims currentAppId, then the
- *   sibling opens under the stable window name appId so repeat clicks re-navigate (and
- *   refocus) the same tab. `window.open` returns a live reference here, so we sever
- *   `opener` ourselves to block reverse-tabnabbing while keeping the reference for focus.
- * - **Cross-origin** (or un-tagged) links open with `noopener,noreferrer`. That flag makes
- *   `window.open` return null and the custom target name is ignored, so the browser may
- *   open a fresh tab each time — the correct, safe trade-off for a cross-origin navigation.
+ * Every link carrying an `appId` reuses one tab, same-origin OR cross-origin:
+ * - If that tab is still open (tracked in `openWindows`, scoped to this component
+ *   instance), it is only **focused**, never re-navigated, so whatever page or
+ *   in-progress state the user left it on stays intact.
+ * - Otherwise a new tab is opened under the stable name `appId` — deliberately without
+ *   the `noopener` window feature, because `noopener` makes the browser treat any custom
+ *   target name like `_blank` (a fresh browsing context every time; see MDN's
+ *   `Window.open()` "features" docs), which is exactly what caused repeat clicks to pile
+ *   up tabs. Instead, `opener` is nulled out in script immediately after opening, before
+ *   the sibling's (possibly cross-origin) document can load: the new tab starts on
+ *   `about:blank`, which is always same-origin to us, so this write reliably lands before
+ *   any cross-origin navigation completes — closing off reverse-tabnabbing without the
+ *   browser-level flag that would otherwise defeat reuse.
+ *
+ * Links without an `appId` have no stable identity to reuse by, so they keep opening a
+ * fresh `noopener,noreferrer` tab every time, same as before.
+ *
+ * Note for anyone adding security response headers later: don't add
+ * `Cross-Origin-Opener-Policy: same-origin` (or `same-origin-allow-popups`) to a suite
+ * app's responses — COOP forces its own browsing-context-group switch on mismatch, which
+ * makes a tracked reference report `.closed` immediately and would silently defeat reuse.
  */
-function openSuiteLink(link: SuiteLink, currentAppId?: string): void {
+function openSuiteLink(link: SuiteLink, currentAppId: string | undefined, openWindows: Map<string, Window>): void {
   if (!isSafeUrl(link.href)) {
     // eslint-disable-next-line no-console -- surfaced for the integrating app to notice/fix
     console.warn(`SuiteSwitcher: refusing to open unsafe link href "${link.href}"`)
     return
   }
-  if (link.appId && isSameOrigin(link.href)) {
-    if (currentAppId) window.name = currentAppId
-    const opened = window.open(link.href, link.appId)
-    if (opened) {
-      try {
-        opened.opener = null
-      } catch {
-        // A cross-origin navigation can race the assignment; the named-tab reuse still holds.
-      }
-      opened.focus()
-    }
+
+  if (!link.appId) {
+    window.open(link.href, '_blank', 'noopener,noreferrer')
     return
   }
-  window.open(link.href, '_blank', 'noopener,noreferrer')
+
+  const existing = openWindows.get(link.appId)
+  if (existing && !existing.closed) {
+    existing.focus()
+    return
+  }
+
+  if (currentAppId && isSameOrigin(link.href)) window.name = currentAppId
+  const opened = window.open(link.href, link.appId)
+  if (opened) {
+    try {
+      opened.opener = null
+    } catch {
+      // A cross-origin navigation can race the assignment; the named-tab reuse still holds.
+    }
+    openWindows.set(link.appId, opened)
+    opened.focus()
+  }
 }
 
 /**
  * AppBar control that switches between the suite's apps. A single link renders a
  * direct-open button (the common two-app suite case); several render a menu.
- * Links carrying an appId reuse one tab per same-origin sibling (see openSuiteLink).
+ * Links carrying an appId reuse one tab per sibling, same- or cross-origin (see
+ * openSuiteLink); the tracked window handles live for this component instance.
  */
 export function SuiteSwitcher({ links, tooltip = 'Switch app', currentAppId }: SuiteSwitcherProps) {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
+  const openWindows = useRef(new Map<string, Window>()).current
 
   if (links.length === 0) return null
 
@@ -82,7 +106,7 @@ export function SuiteSwitcher({ links, tooltip = 'Switch app', currentAppId }: S
           edge="start"
           aria-label={tooltip}
           sx={{ mr: 1 }}
-          onClick={() => openSuiteLink(link, currentAppId)}
+          onClick={() => openSuiteLink(link, currentAppId, openWindows)}
         >
           <AppsIcon />
         </IconButton>
@@ -109,7 +133,7 @@ export function SuiteSwitcher({ links, tooltip = 'Switch app', currentAppId }: S
             selected={link.current}
             onClick={() => {
               setAnchor(null)
-              openSuiteLink(link, currentAppId)
+              openSuiteLink(link, currentAppId, openWindows)
             }}
           >
             <ListItemText primary={link.label} />
