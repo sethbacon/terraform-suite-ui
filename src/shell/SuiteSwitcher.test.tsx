@@ -68,7 +68,8 @@ describe('SuiteSwitcher', () => {
   })
 
   it('opens a fresh tab again once the previously-opened sibling tab has been closed', () => {
-    const opened = { focus: vi.fn(), opener: {}, closed: false } as unknown as Window
+    const openedMock = { focus: vi.fn(), opener: {}, closed: false }
+    const opened = openedMock as unknown as Window
     const open = vi.spyOn(window, 'open').mockReturnValue(opened)
     render(
       <SuiteSwitcher
@@ -79,7 +80,7 @@ describe('SuiteSwitcher', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
     expect(open).toHaveBeenCalledTimes(1)
 
-    opened.closed = true
+    openedMock.closed = true
     fireEvent.click(screen.getByRole('button', { name: 'Open State Manager' }))
     expect(open).toHaveBeenCalledTimes(2)
   })
