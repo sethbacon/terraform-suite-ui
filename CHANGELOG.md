@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.6.1](https://github.com/sethbacon/terraform-suite-ui/compare/v0.6.0...v0.6.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **shell:** make SuiteSwitcher reuse one tab per sibling regardless of origin ([#77](https://github.com/sethbacon/terraform-suite-ui/issues/77)) ([49e0855](https://github.com/sethbacon/terraform-suite-ui/commit/49e0855991a6ead27ba5858907d16e7a7641cdc2))
+
 ## [0.6.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.5.4...v0.6.0) (2026-07-18)
 
 
