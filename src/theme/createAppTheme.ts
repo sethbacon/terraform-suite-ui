@@ -1,4 +1,4 @@
-import { createTheme, type Theme } from '@mui/material/styles'
+import { createTheme, decomposeColor, type Theme } from '@mui/material/styles'
 import {
   BORDER_RADIUS,
   BRAND_PRIMARY,
@@ -10,17 +10,21 @@ import {
 } from '../tokens'
 import type { Direction, ThemeMode, ThemeOverrides } from './types'
 
-// MUI's decomposeColor (reached via createTheme -> augmentColor) accepts only #hex, rgb()/rgba(),
-// hsl()/hsla() and color() values and THROWS for anything else (including CSS named colors like
-// "red" or a hex missing its '#'). A runtime whitelabel override colour that fails this check must
-// fall back to the built-in token rather than crash the consuming app's render tree.
+// createTheme -> augmentColor parses each palette colour with MUI's decomposeColor
+// and THROWS for anything it cannot parse (a CSS named colour, a hex missing its
+// '#', or a color() with an unsupported colour space like "color(display-p4 …)").
+// A runtime whitelabel override that would throw must fall back to the built-in
+// token rather than crash the consuming app's render tree, so this validator
+// probes the value with the SAME parser createTheme uses — a prefix regex is not
+// enough, because it accepts color() strings the parser then rejects.
 function isValidThemeColor(value: string | undefined): value is string {
   if (!value) return false
-  const v = value.trim()
-  return (
-    /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v) ||
-    /^(rgb|rgba|hsl|hsla|color)\(/i.test(v)
-  )
+  try {
+    decomposeColor(value.trim())
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -45,7 +49,7 @@ export function createAppTheme(
       ? SECONDARY_DARK
       : SECONDARY_LIGHT
 
-  return createTheme({
+  const themeOptions = {
     direction,
     palette: {
       mode,
@@ -97,5 +101,18 @@ export function createAppTheme(
         },
       },
     },
-  })
+  }
+
+  try {
+    return createTheme(themeOptions)
+  } catch {
+    // Defensive net: a colour that slipped past isValidThemeColor and broke
+    // createTheme must never white-screen the app. Rebuild with the built-in
+    // tokens only (createAppTheme with no overrides uses known-valid values, so
+    // this cannot recurse further).
+    if (primary !== BRAND_PRIMARY || overrides.secondaryDark || overrides.secondaryLight) {
+      return createAppTheme(mode, prefersReducedMotion, direction, {})
+    }
+    throw new Error('createAppTheme: built-in theme tokens failed to build')
+  }
 }

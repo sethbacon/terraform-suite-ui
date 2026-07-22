@@ -86,4 +86,32 @@ describe('ApiKeyExpirySettingsCard', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByText('Failed to save settings.')).toBeInTheDocument()
   })
+
+  it('re-seeds the form when a later value prop change arrives (issue #80)', async () => {
+    // First load seeds warningDays=7. A background refetch (isLoading stays
+    // false) then surfaces another admin's change to 14 — the form must follow,
+    // not keep showing the stale 7 it seeded on first load.
+    const { rerender } = render(<ApiKeyExpirySettingsCard value={baseValue} onSave={() => Promise.resolve()} />)
+    expect(screen.getByLabelText(/Warn this many days before expiry/)).toHaveValue(7)
+
+    rerender(
+      <ApiKeyExpirySettingsCard value={{ ...baseValue, warningDays: 14 }} onSave={() => Promise.resolve()} />,
+    )
+    await waitFor(() => expect(screen.getByLabelText(/Warn this many days before expiry/)).toHaveValue(14))
+  })
+
+  it('preserves in-progress edits when the value prop is unchanged', async () => {
+    // A re-render with the SAME loaded value (e.g. a refetch returning identical
+    // data) must not clobber what the admin is currently typing.
+    const user = userEvent.setup()
+    const { rerender } = render(<ApiKeyExpirySettingsCard value={baseValue} onSave={() => Promise.resolve()} />)
+
+    const days = screen.getByLabelText(/Warn this many days before expiry/)
+    await user.clear(days)
+    await user.type(days, '30')
+    expect(days).toHaveValue(30)
+
+    rerender(<ApiKeyExpirySettingsCard value={{ ...baseValue }} onSave={() => Promise.resolve()} />)
+    expect(screen.getByLabelText(/Warn this many days before expiry/)).toHaveValue(30)
+  })
 })

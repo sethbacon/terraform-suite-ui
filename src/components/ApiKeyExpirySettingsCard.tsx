@@ -54,9 +54,16 @@ export function ApiKeyExpirySettingsCard({ value, isLoading = false, canManage =
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ severity: 'success' | 'error'; text: string } | null>(null)
 
-  const [seededFor, setSeededFor] = useState(false)
-  if (!isLoading && !seededFor) {
-    setSeededFor(true)
+  // Re-seed the local edit state from props whenever the loaded value's identity
+  // changes — the initial load AND any later change (e.g. a background refetch
+  // surfacing a newer server value), keyed on the value's contents. A one-shot
+  // boolean would seed only once and then silently show stale values after the
+  // first load. Mirrors ChannelFormDialog's seedKey pattern. An unchanged value
+  // (same key) does not re-seed, so a user's in-progress edits are preserved.
+  const [seededFor, setSeededFor] = useState<string | null>(null)
+  const seedKey = isLoading ? null : `${value.apiKeyExpiring}|${value.warningDays}|${value.checkIntervalHours}`
+  if (seedKey !== null && seededFor !== seedKey) {
+    setSeededFor(seedKey)
     setApiKeyExpiring(value.apiKeyExpiring)
     setWarningDays(value.warningDays)
     setCheckIntervalHours(value.checkIntervalHours)
