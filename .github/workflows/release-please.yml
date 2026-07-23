@@ -6,9 +6,10 @@ name: Release Please
     branches: [main]
   workflow_dispatch: {}
 
+# The release/PR mutations run under the GitHub App token minted below, not the
+# workflow's GITHUB_TOKEN — so this workflow itself needs no write permissions.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   release-please:

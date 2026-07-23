@@ -78,7 +78,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=high
+      - run: npm audit --audit-level=moderate
+      # Verify registry signatures/provenance attestations of everything installed.
+      - run: npm audit signatures
 
   commitlint:
     name: Commitlint
