@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ConsentProvider } from './ConsentProvider'
 import { ConsentBanner } from './ConsentBanner'
 
@@ -47,5 +47,59 @@ describe('ConsentBanner', () => {
       </ConsentProvider>,
     )
     expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
+  })
+
+  it('records full consent and hides the banner when Accept all is clicked', () => {
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <ConsentBanner />
+      </ConsentProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Accept all' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('test-consent') ?? '{}')).toEqual({
+      essential: true,
+      errorReporting: true,
+      performanceReporting: true,
+      analytics: true,
+    })
+  })
+
+  it('records essential-only consent and hides the banner when Reject all is clicked', () => {
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <ConsentBanner />
+      </ConsentProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Reject all' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('test-consent') ?? '{}')).toEqual({
+      essential: true,
+      errorReporting: false,
+      performanceReporting: false,
+      analytics: false,
+    })
+  })
+
+  it('reveals the per-category toggles when Customize is clicked', () => {
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <ConsentBanner />
+      </ConsentProvider>,
+    )
+    expect(screen.queryByLabelText('Analytics')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Customize' }))
+    expect(screen.getByLabelText('Analytics')).toBeInTheDocument()
+  })
+
+  it('toggling a per-category switch records consent for that preference', () => {
+    render(
+      <ConsentProvider storageKey="test-consent">
+        <ConsentBanner />
+      </ConsentProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Customize' }))
+    fireEvent.click(screen.getByLabelText('Analytics'))
+    expect(JSON.parse(localStorage.getItem('test-consent') ?? '{}').analytics).toBe(true)
   })
 })
