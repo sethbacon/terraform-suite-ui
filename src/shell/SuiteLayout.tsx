@@ -163,12 +163,15 @@ export function SuiteLayout({
     [visibleGroups, location.pathname],
   )
 
-  const isGroupOpen = (key: string) =>
-    openGroups[key] ?? (groupStateStorageKey ? true : key === activeGroupKey)
+  // Default open-state for a group with no explicit entry yet: always open when persistence is
+  // enabled (matches the initializer above), otherwise only the currently-active group.
+  const defaultGroupOpen = (key: string) => (groupStateStorageKey ? true : key === activeGroupKey)
+
+  const isGroupOpen = (key: string) => openGroups[key] ?? defaultGroupOpen(key)
 
   const toggleGroup = (key: string) => {
     setOpenGroups((prev) => {
-      const current = prev[key] ?? (groupStateStorageKey ? true : key === activeGroupKey)
+      const current = prev[key] ?? defaultGroupOpen(key)
       const next = { ...prev, [key]: !current }
       if (groupStateStorageKey) {
         safeSetItem(groupStateStorageKey, JSON.stringify(next))
