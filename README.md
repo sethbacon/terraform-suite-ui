@@ -23,6 +23,8 @@ Framework packages (React, MUI, Emotion, i18next, react-router) are
 
 ## Develop
 
+Requires Node `>=24.0.0 <25` (see `engines` in `package.json`).
+
 ```bash
 npm install
 npm run typecheck   # tsc --noEmit
@@ -85,6 +87,10 @@ import { SuiteThemeProvider, PageHeader, useAuth } from '@sethbacon/terraform-su
 
 > This package is a **build-time** dependency only; each app remains independently
 > deployable. Wiring the two apps to consume it is intentionally a separate step.
+
+> This package is **ESM-only** (`"type": "module"`, a single `import` export condition, no
+> `require`) — consume it from an ESM build/toolchain. It also declares `engines.node`
+> (`>=24.0.0 <25`); installing under an older/newer Node major is unsupported.
 
 ## Security model
 
