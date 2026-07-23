@@ -9,8 +9,11 @@ export interface NavItem {
   tooltipKey?: string
   /** Leading icon element. */
   icon: ReactNode
-  /** Scope required to see this item; null = always visible to authenticated users. */
-  scope: string | null
+  /**
+   * Scope required to see this item. Omit (or pass null) for items visible to
+   * every authenticated user — no more `scope: null` boilerplate per item.
+   */
+  scope?: string | null
 }
 
 export interface NavGroup {
