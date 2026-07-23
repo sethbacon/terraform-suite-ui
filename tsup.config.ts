@@ -12,6 +12,11 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
+  // Ship a minified bundle; the build script then strips sourcesContent from
+  // the maps (scripts/strip-sourcemap-sources.mjs), so stack traces still map
+  // to names/positions but the tarball no longer embeds the full source text —
+  // the public GitHub repo is the reference for actual source-level debugging.
+  minify: true,
   target: 'es2021',
   external: [
     'react',

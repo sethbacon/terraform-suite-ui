@@ -18,11 +18,25 @@ updates:
       - javascript
     commit-message:
       prefix: "chore(deps)"
+    # Version updates group by runtime impact (a peer/runtime bump deserves more
+    # scrutiny than a dev-tool bump). Security updates stay UNGROUPED — each
+    # advisory lands as its own immediately-mergeable PR instead of riding along
+    # in a weekly batch.
     groups:
-      npm-dependencies:
+      runtime-dependencies:
+        applies-to: version-updates
+        dependency-type: production
+        patterns:
+          - "*"
+      dev-dependencies:
+        applies-to: version-updates
+        dependency-type: development
         patterns:
           - "*"
     ignore:
+      # These scoped ignores suppress version-update PRs only. If a security fix
+      # ever ships exclusively in a new major, the Dependabot ALERT still fires —
+      # handle that major manually.
       # Major React/MUI bumps require manual migration work.
       - dependency-name: "react"
         update-types: ["version-update:semver-major"]
