@@ -24,13 +24,18 @@ function getDirection(lang: string): Direction {
   return RTL_LANGUAGES.has(lang.split('-')[0]) ? 'rtl' : 'ltr'
 }
 
-function readInitialMode(storageKey: string): ThemeMode {
+// Exported (module-internal only, not part of the public barrel) so the SSR/no-window guard
+// can be unit-tested directly without going through a full component render.
+export function readInitialMode(storageKey: string): ThemeMode {
   const stored = safeGetItem(storageKey)
   if (stored === 'light' || stored === 'dark') return stored
+  // useState initializers run during SSR too, where `window` doesn't exist — fall back to 'light'.
+  if (typeof window === 'undefined') return 'light'
   return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light'
 }
 
-function readReducedMotion(): boolean {
+export function readReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false
   return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
 }
 
