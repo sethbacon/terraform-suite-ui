@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { render, screen, act, waitFor } from '@testing-library/react'
 import { type ComponentProps } from 'react'
-import { SuiteThemeProvider, useThemeMode } from './SuiteThemeProvider'
+import { SuiteThemeProvider, useThemeMode, readInitialMode, readReducedMotion } from './SuiteThemeProvider'
 import type { UIThemeConfig } from './types'
 
 function Probe() {
@@ -87,6 +87,24 @@ describe('SuiteThemeProvider', () => {
     renderProvider({ getUITheme: vi.fn().mockResolvedValue(config) })
     // createAppTheme must fall back to the built-in palette rather than throw; children still render.
     await waitFor(() => expect(screen.getByTestId('product')).toHaveTextContent('Registry'))
+  })
+
+  it('readInitialMode falls back to light when window is unavailable (SSR)', () => {
+    vi.stubGlobal('window', undefined)
+    try {
+      expect(readInitialMode('tk')).toBe('light')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('readReducedMotion falls back to false when window is unavailable (SSR)', () => {
+    vi.stubGlobal('window', undefined)
+    try {
+      expect(readReducedMotion()).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('throws if useThemeMode is used outside the provider', () => {
