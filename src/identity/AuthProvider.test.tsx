@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
-import { AuthProvider, useAuth, ADMIN_SCOPE } from './AuthProvider'
+import { AuthProvider, useAuth, ADMIN_SCOPE, sanitizeAuthError } from './AuthProvider'
 import type { AuthApi, MeResponse } from './types'
 
 function makeApi(me: MeResponse): AuthApi {
@@ -24,7 +24,7 @@ function Probe() {
       <span data-testid="scope-mismatch">{String(hasScope('billing:write'))}</span>
       <span data-testid="scope-admin">{String(hasScope(ADMIN_SCOPE))}</span>
       <span data-testid="expires-soon">{String(sessionExpiresSoon)}</span>
-      <span data-testid="auth-error">{authError ? 'error' : 'none'}</span>
+      <span data-testid="auth-error">{authError ?? 'none'}</span>
       <button onClick={() => void refreshSession()}>refresh</button>
       <button onClick={logout}>logout</button>
     </div>
@@ -83,7 +83,7 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('scope-admin')).toHaveTextContent('false')
   })
 
-  it('is unauthenticated when the api rejects, and exposes the error via authError', async () => {
+  it('is unauthenticated when the api rejects, and exposes a sanitized authError string', async () => {
     const api = makeApi({
       user: { id: '1', email: 'a@b.com', name: 'Ada' },
       memberships: [],
@@ -96,7 +96,24 @@ describe('AuthProvider', () => {
       </AuthProvider>,
     )
     await waitFor(() => expect(screen.getByTestId('auth')).toHaveTextContent('false'))
-    expect(screen.getByTestId('auth-error')).toHaveTextContent('error')
+    expect(screen.getByTestId('auth-error')).toHaveTextContent('401')
+  })
+
+  describe('sanitizeAuthError', () => {
+    it('maps axios-shaped failures to an HTTP status message', () => {
+      expect(sanitizeAuthError({ response: { status: 503 } })).toBe('Session check failed (HTTP 503)')
+    })
+
+    it('uses the Error message when present', () => {
+      expect(sanitizeAuthError(new Error('boom'))).toBe('boom')
+    })
+
+    it('falls back for opaque values and never leaks response payloads', () => {
+      const leaky = { response: { data: { secret: 'hunter2' }, headers: { cookie: 'x' } } }
+      expect(sanitizeAuthError(leaky)).toBe('Session check failed')
+      expect(sanitizeAuthError(undefined)).toBe('Session check failed')
+      expect(sanitizeAuthError('raw string')).toBe('Session check failed')
+    })
   })
 
   describe('session-expiry timers', () => {

@@ -158,6 +158,20 @@ describe('SuiteLayout', () => {
     expect(screen.getByText('Administration')).toBeInTheDocument()
   })
 
+  it('shows an item with scope omitted to any authenticated user (optional scope)', async () => {
+    const group: NavGroup = {
+      key: 'main',
+      labelKey: 'Main',
+      // No scope key at all — the new optional default; visible without any scopes.
+      items: [{ path: '/things', labelKey: 'Things', icon: <StorageIcon /> }],
+    }
+    renderLayout(
+      { navGroups: [group], groupStateStorageKey: 'test-optional-scope' },
+      { authApi: makeApi([]) },
+    )
+    expect(await screen.findByRole('link', { name: 'Things' })).toBeInTheDocument()
+  })
+
   it('hides the standaloneItem when the group is scope-filtered out', async () => {
     renderLayout({ navGroups: [adminGroup] }, { authApi: makeApi([]) })
     await screen.findByText('Test Suite')

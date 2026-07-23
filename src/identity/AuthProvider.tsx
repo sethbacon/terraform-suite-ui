@@ -57,6 +57,18 @@ export interface AuthProviderProps {
  * and schedules a session-expiry warning. The `api`/`onClearStorage` props are
  * read through refs, so passing a fresh object each render is harmless.
  */
+/**
+ * Reduce a session-resolution failure to a display-safe string. Exported for
+ * tests only (not re-exported from the package barrel): the raw error may
+ * carry response bodies, headers, and URLs that must never reach UI state.
+ */
+export function sanitizeAuthError(err: unknown): string {
+  const status = (err as { response?: { status?: unknown } })?.response?.status
+  if (typeof status === 'number') return `Session check failed (HTTP ${status})`
+  if (err instanceof Error && err.message) return err.message
+  return 'Session check failed'
+}
+
 export function AuthProvider({ children, api, onClearStorage }: AuthProviderProps) {
   const apiRef = useRef(api)
   apiRef.current = api
@@ -69,7 +81,7 @@ export function AuthProvider({ children, api, onClearStorage }: AuthProviderProp
   const [isLoading, setIsLoading] = useState(true)
   const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(null)
   const [sessionExpiresSoon, setSessionExpiresSoon] = useState(false)
-  const [authError, setAuthError] = useState<unknown>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Monotonic token bumped on logout and unmount. Any in-flight loadUser()/refreshSession()
   // captures the current value and discards its result if the token has since moved on — so a
@@ -171,7 +183,7 @@ export function AuthProvider({ children, api, onClearStorage }: AuthProviderProp
         // isAuthenticated true with an undefined user.
         resetSessionState()
         onClearStorageRef.current?.()
-        setAuthError(new Error('Malformed session response: missing user'))
+        setAuthError('Malformed session response: missing user')
         return
       }
       applyMe(me)
@@ -182,10 +194,10 @@ export function AuthProvider({ children, api, onClearStorage }: AuthProviderProp
       // network/backend error) — an authenticated-looking UI must never linger on a stale
       // session. Clear host-cached auth storage on this path too (not only on explicit logout),
       // so a lapsed/expired session does not leave stale app data behind. authError is exposed
-      // so a host CAN still distinguish the two cases.
+      // (sanitized to a display-safe string) so a host CAN still distinguish the two cases.
       resetSessionState()
       onClearStorageRef.current?.()
-      setAuthError(err)
+      setAuthError(sanitizeAuthError(err))
     }
   }, [applyMe, resetSessionState])
 

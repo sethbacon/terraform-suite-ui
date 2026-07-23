@@ -44,12 +44,14 @@ export interface AuthContextType {
   /** True once the session is within the expiry-warning window. */
   sessionExpiresSoon: boolean
   /**
-   * The error from the most recent failed `getCurrentUser()`/session-resolution call, or null.
-   * Lets a host distinguish a real "not logged in" state from a transient network/backend
-   * error if it wants to (e.g. show a retry banner instead of redirecting to login) —
-   * `isAuthenticated` is always false in both cases, since the library fails closed regardless.
+   * A sanitized, display-safe message from the most recent failed
+   * `getCurrentUser()`/session-resolution call, or null. Lets a host distinguish a real
+   * "not logged in" state from a transient network/backend error if it wants to (e.g. show a
+   * retry banner instead of redirecting to login) — `isAuthenticated` is always false in both
+   * cases, since the library fails closed regardless. The raw error object is deliberately NOT
+   * exposed: it can carry response bodies, headers, and URLs that must not leak into UI state.
    */
-  authError: unknown
+  authError: string | null
   login: (provider?: string) => void
   devLogin: () => Promise<void>
   ldapLogin: (username: string, password: string) => Promise<void>

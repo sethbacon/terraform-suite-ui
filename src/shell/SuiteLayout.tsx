@@ -150,7 +150,7 @@ export function SuiteLayout({
       navGroups
         .map((g) => ({
           ...g,
-          items: (g.items ?? []).filter((it) => it.scope === null || hasScope(it.scope)),
+          items: (g.items ?? []).filter((it) => it.scope == null || hasScope(it.scope)),
         }))
         .filter((g) => g.items.length > 0),
     [navGroups, hasScope],
