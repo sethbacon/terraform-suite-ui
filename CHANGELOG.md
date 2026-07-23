@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file. It is maintaine
 automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.7.0](https://github.com/sethbacon/terraform-suite-ui/compare/v0.6.1...v0.7.0) (2026-07-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* AuthContextType.authError changed from unknown to string | null. Hosts that inspected the raw error object must switch to the message string (no known consumers do — both suite frontends were grepped). NavItem.scope: string | null -> scope?: string | null is source-compatible for all existing consumers.
+
+### Features
+
+* sanitize authError to a string, make NavItem.scope optional, widen Node engines ([#85](https://github.com/sethbacon/terraform-suite-ui/issues/85)) ([e0fba2a](https://github.com/sethbacon/terraform-suite-ui/commit/e0fba2a7105ac6d04ac74a3066772dd3e3de64b8))
+
+
+### Bug Fixes
+
+* **theme,components:** validate whitelabel colours with MUI's parser; re-seed expiry card on value change ([#81](https://github.com/sethbacon/terraform-suite-ui/issues/81)) ([2d17d03](https://github.com/sethbacon/terraform-suite-ui/commit/2d17d03930fd582e970a9cfd2b3034fd1e3db366))
+
 ## [0.6.1](https://github.com/sethbacon/terraform-suite-ui/compare/v0.6.0...v0.6.1) (2026-07-21)
 
 
